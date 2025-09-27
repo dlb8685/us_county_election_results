@@ -17,10 +17,16 @@ source_files = [
     # U.S. Census Bureau
     {"url": "https://www2.census.gov/programs-surveys/popest/datasets/2020-2024/counties/asrh/cc-est2024-agesex-all.csv",
         "csv_path": "data/raw_data/us_census_bureau__cc-est2024-agesex-all.csv",
-        "allows_url_download": True},
+        "allows_url_download": False},
     {"url": "https://www2.census.gov/programs-surveys/popest/datasets/2020-2024/counties/asrh/cc-est2024-alldata.csv",
         "csv_path": "data/raw_data/us_census_bureau__cc-est2024-alldata.csv",
-        "allows_url_download": True}
+        "allows_url_download": False},
+    {"url": "https://www2.census.gov/programs-surveys/decennial/tables/time-series/historical-income-counties/county1.csv",
+        "csv_path": "data/raw_data/us_census_bureau__median_income_county1.csv",
+        "allows_url_download": False},
+    {"url": "https://www2.census.gov/programs-surveys/popest/datasets/2010-2019/counties/asrh/cc-est2019-alldata.csv",
+        "csv_path": "data/raw_data/us_census_bureau__cc-est2019-alldata.csv",
+        "allows_url_download": False}
 ]
 
 for file in source_files:

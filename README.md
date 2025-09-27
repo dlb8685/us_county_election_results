@@ -20,7 +20,23 @@ NOTE:
 
 cc-est2024-agesex-all.csv | https://www2.census.gov/programs-surveys/popest/datasets/2020-2024/counties/asrh/cc-est2024-agesex-all.csv
 cc-est2024-alldata.csv | https://www2.census.gov/programs-surveys/popest/datasets/2020-2024/counties/asrh/cc-est2024-alldata.csv
-
 County Population by Characteristics: 2020-2024 (https://www.census.gov/data/tables/time-series/demo/popest/2020s-counties-detail.html)
+
+cc-est2019-alldata.csv | https://www2.census.gov/programs-surveys/popest/datasets/2010-2019/counties/asrh/cc-est2019-alldata.csv
+County Population by Characteristics: 2010-2019 (https://www.census.gov/data/tables/time-series/demo/popest/2010s-counties-detail.html)
+
+
+median_income_county1.csv | https://www2.census.gov/programs-surveys/decennial/tables/time-series/historical-income-counties/county1.csv
+Historical Income Tables: Counties (https://www.census.gov/data/tables/time-series/dec/historical-income-counties.html)
+
+
+### raw_data/nber
+
+countypopmonthasrh.csv | https://data.nber.org/census/population/popest/countypopmonthasrh.csv
+coest00intalldata.csv | https://data.nber.org/census/population/popest/coest00intalldata.csv
+
+US Intercensal County Population Data by Age, Sex, Race, and Hispanic Origin (https://www.nber.org/research/data/us-intercensal-county-population-data-age-sex-race-and-hispanic-origin)
+NOTE:
+ - For Shannon County, SD, find/replace FIPS 46113 and change to 46102, to mirror name change to Oglala County and new FIPS after 2013.
 
 
