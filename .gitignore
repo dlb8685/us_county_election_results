@@ -1,6 +1,7 @@
-# Raw_Data files
+# Raw_Data and project files
 /data/raw_data/*
-
+us_county_election_results.db
+us_county_election_results_venv
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

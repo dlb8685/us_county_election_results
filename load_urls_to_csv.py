@@ -28,6 +28,9 @@ source_files = [
     {"url": "https://www2.census.gov/programs-surveys/popest/datasets/2010-2019/counties/asrh/cc-est2019-alldata.csv",
         "csv_path": "data/raw_data/us_census_bureau__cc-est2019-alldata.csv",
         "allows_url_download": False},
+    {"url": "https://www2.census.gov/programs-surveys/saipe/datasets/2010/2010-state-and-county/est10all.xls",
+        "csv_path": "data/raw_data/us_census_bureau__est10all.csv",
+        "allows_url_download": False},
     # National Bureau of Economic Research (NBER)
     {"url": "https://data.nber.org/census/population/popest/coest00intalldata.csv",
         "csv_path": "data/raw_data/nber__coest00intalldata.csv",
@@ -51,8 +54,9 @@ source_files = [
         "allows_url_download": False}
 ]
 
-for file in source_files:
-    if file["allows_url_download"]:
-        load_url_to_csv(file["url"], file["csv_path"])
+if __name__ == '__main__':
+    for file in source_files:
+        if file["allows_url_download"]:
+            load_url_to_csv(file["url"], file["csv_path"])
 
 
