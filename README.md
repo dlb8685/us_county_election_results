@@ -25,10 +25,13 @@ County Population by Characteristics: 2020-2024 (https://www.census.gov/data/tab
 cc-est2019-alldata.csv | https://www2.census.gov/programs-surveys/popest/datasets/2010-2019/counties/asrh/cc-est2019-alldata.csv
 County Population by Characteristics: 2010-2019 (https://www.census.gov/data/tables/time-series/demo/popest/2010s-counties-detail.html)
 
-
 median_income_county1.csv | https://www2.census.gov/programs-surveys/decennial/tables/time-series/historical-income-counties/county1.csv
 Historical Income Tables: Counties (https://www.census.gov/data/tables/time-series/dec/historical-income-counties.html)
 
+https://www2.census.gov/programs-surveys/saipe/datasets/2010/2010-state-and-county
+Table 1: 2010 Poverty and Median Income Estimates - Counties    Source: U.S. Census Bureau, Small Area Estimates Branch     Release date: 11.2011
+NOTE:
+ - to convert from xls to csv, unfortunately a manual step of deleting the first two rows and re-saving was needed.
 
 ### raw_data/nber
 countypopmonthasrh.csv | https://data.nber.org/census/population/popest/countypopmonthasrh.csv
