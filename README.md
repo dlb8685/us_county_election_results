@@ -3,6 +3,7 @@ A project to create and analyze data from U.S. elections, primarily at the count
 
 
 ## Raw Data
+Below are sources and notes on the data lineage of the raw data files.
 
 ### raw_data/mit_election_labs
 countypres_2000-2024.csv | https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/VOQCHQ#
@@ -17,7 +18,6 @@ NOTE:
 
 
 ### raw_data/us_census_bureau
-
 cc-est2024-agesex-all.csv | https://www2.census.gov/programs-surveys/popest/datasets/2020-2024/counties/asrh/cc-est2024-agesex-all.csv
 cc-est2024-alldata.csv | https://www2.census.gov/programs-surveys/popest/datasets/2020-2024/counties/asrh/cc-est2024-alldata.csv
 County Population by Characteristics: 2020-2024 (https://www.census.gov/data/tables/time-series/demo/popest/2020s-counties-detail.html)
@@ -31,12 +31,26 @@ Historical Income Tables: Counties (https://www.census.gov/data/tables/time-seri
 
 
 ### raw_data/nber
-
 countypopmonthasrh.csv | https://data.nber.org/census/population/popest/countypopmonthasrh.csv
 coest00intalldata.csv | https://data.nber.org/census/population/popest/coest00intalldata.csv
 
 US Intercensal County Population Data by Age, Sex, Race, and Hispanic Origin (https://www.nber.org/research/data/us-intercensal-county-population-data-age-sex-race-and-hispanic-origin)
 NOTE:
  - For Shannon County, SD, find/replace FIPS 46113 and change to 46102, to mirror name change to Oglala County and new FIPS after 2013.
+
+
+### raw_data/usda
+Poverty2023.csv | https://ers.usda.gov/sites/default/files/_laserfiche/DataFiles/48747/Poverty2023.csv?v=42351
+Unemployment2023.csv | https://ers.usda.gov/sites/default/files/_laserfiche/DataFiles/48747/Unemployment2023.csv?v=76382
+| https://ers.usda.gov/sites/default/files/_laserfiche/DataFiles/48747/Education2023.csv?v=63961
+
+Economic Research Service U.S. DEPARTMENT OF AGRICULTURE
+https://www.ers.usda.gov/data-products/county-level-data-sets/documentation
+
+
+### raw_data/hmdb
+county_seats.csv
+This isn't even a CSV to download, you have to copy-paste and create your own file...
+https://www.hmdb.org/countyoverlay/countyseatlist.asp
 
 
