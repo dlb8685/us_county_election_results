@@ -1,0 +1,4 @@
+cd /Users/danbryan/Personal/us_county_election_results
+source us_county_election_results_venv/bin/activate
+
+sqlite3 us_county_election_results.db

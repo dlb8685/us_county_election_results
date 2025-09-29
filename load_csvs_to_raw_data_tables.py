@@ -27,7 +27,7 @@ if __name__ == '__main__':
     ## NOTE: need to make sure csv is saved with UTF-8 encoding, the Census Bureau doesn't do that.
     load_csv_to_sqlite(
         "data/raw_data/us_census_bureau__cc-est2019-alldata.csv",
-        "raw_data__us_census_bureau__cc-est2019-alldata",
+        "raw_data__us_census_bureau__cc_est2019_alldata",
         con
     )
     ## 2020
