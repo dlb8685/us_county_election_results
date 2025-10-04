@@ -92,7 +92,7 @@ select county_fips, year, count(*) from final__county_election_data_by_year
 where county_fips is not null
 group by 1,2 having count(*) > 1 order by 3 desc, 1, 2;
 
--- 
+-- All results outside of a couple known exceptions, matched voting to population data.
 select county_fips, county_name, state_abbr, year,  votes_total
 from final__county_election_data_by_year 
 where population_total is null
@@ -100,30 +100,7 @@ where population_total is null
     and state_abbr <> 'AK' --    <- We know AK is a weird state
 ;
 
-select distinct county_fips, county_name, state_abbr from final__county_election_data_by_year where state_abbr = 'RI'
-order by 1,2,3;
 
-select county_fips, county_name, state_abbr, votes_total, population_total
-from final__county_election_data_by_year  where county_fips in ('18146');
-
-select county_fips, county_name, state_abbr, year, votes_total, population_total
-from final__county_election_data_by_year where state_abbr = 'LA'
-order by 2,1,3,4,5;
-
-county_fips  county_name  state_abbr  year  votes_total
------------  -----------  ----------  ----  -----------
-04029        YUMA         AZ          2024  68910      
-06117        YUBA         CA          2024  29817      
-13203        MITCHELL     GA          2024  8877       
-
-
-select *, case when year < 2024 and party not in ('UNDERVOTES', 'OVERVOTES') then candidatevotes
-                    when year = 2024 and state_po not in ('AR', 'AZ', 'LA', 'OK', 'PA', 'SC', 'TX') and party not in ('UNDERVOTES', 'OVERVOTES') then candidatevotes
-                    when year = 2024 and state_po in ('AR', 'AZ', 'LA', 'OK', 'PA', 'SC', 'TX') and party not in ('UNDERVOTES', 'OVERVOTES') and mode in ('TOTAL', 'TOTAL VOTES') then candidatevotes
-                    else 0 end
-from raw_data__mit_election_labs__countypres_2000_2024
-where year = 2024 and state_po = 'TX';       
-                    
 
 
 DROP TABLE IF EXISTS final__county_election_data_overall;
@@ -135,47 +112,270 @@ select
     cd.county_seat,
     cd.state_name,
     cd.state_abbr,
-    -- Year
-    cd.year,
     -- Economics (all years)
-    ec.median_household_income_2010,
-    ec.poverty_pct_overall_2010,
-    ec.poverty_pct_under_18_2010,
+    cd.median_household_income_2010,
+    cd.poverty_pct_overall_2010,
+    cd.poverty_pct_under_18_2010,
     -- 2000
-    case when cd.year = 2000 then cd.population_total end as population_total_2000,
-    case when cd.year = 2000 then cd.population_white end as population_white_2000,
-    case when cd.year = 2000 then cd.population_black end as population_black_2000,
-    case when cd.year = 2000 then cd.population_am_ind end as population_am_ind_2000,
-    case when cd.year = 2000 then cd.population_asian end as population_asian_2000,
-    case when cd.year = 2000 then cd.population_pacific end as population_pacific_2000,
-    case when cd.year = 2000 then cd.population_two_races_nh end as population_two_races_nh_2000,
-    case when cd.year = 2000 then cd.population_hispanic end as population_hispanic_2000,
-    case when cd.year = 2000 then cd.population_over_18_total end as population_over_18_total_2000,
-    case when cd.year = 2000 then cd.population_pct_white end as population_pct_white_2000,
-    case when cd.year = 2000 then cd.population_pct_black end as population_pct_black_2000,
-    case when cd.year = 2000 then cd.population_pct_am_ind end as population_pct_am_ind_2000,
-    case when cd.year = 2000 then cd.population_pct_asian end as population_pct_asian_2000,
-    case when cd.year = 2000 then cd.population_pct_pacific end as population_pct_pacific_2000,
-    case when cd.year = 2000 then cd.population_pct_two_races_nh end as population_pct_two_races_nh_2000,
-    case when cd.year = 2000 then cd.population_pct_hispanic end as population_pct_hispanic_2000,
-    case when cd.year = 2000 then cd.population_pct_over_18 end as population_pct_over_18_2000,
-    -- Educational Attainment
-    e.bachelor_degree_pct_of_adults,
-    -- Voting results
-    res.votes_democrat,
-    res.votes_republican,
-    res.votes_other,
-    res.votes_total,
-    res.votes_pct_democrat,
-    res.votes_pct_republican,
-    res.votes_pct_other,
-    res.votes_pct_two_party_democrat,
-    res.votes_pct_two_party_republican,
-    res.winning_party,
-    res.winning_margin,
-    res.winning_two_party_margin,
-    res.votes_pct_partisan_index,
-    res.votes_pct_swing_from_prev_election
+        -- Demographics
+    max(case when cd.year = 2000 then cd.population_total end) as population_total_2000,
+    max(case when cd.year = 2000 then cd.population_white end) as population_white_2000,
+    max(case when cd.year = 2000 then cd.population_black end) as population_black_2000,
+    max(case when cd.year = 2000 then cd.population_am_ind end) as population_am_ind_2000,
+    max(case when cd.year = 2000 then cd.population_asian end) as population_asian_2000,
+    max(case when cd.year = 2000 then cd.population_pacific end) as population_pacific_2000,
+    max(case when cd.year = 2000 then cd.population_two_races_nh end) as population_two_races_nh_2000,
+    max(case when cd.year = 2000 then cd.population_hispanic end) as population_hispanic_2000,
+    max(case when cd.year = 2000 then cd.population_over_18_total end) as population_over_18_total_2000,
+    max(case when cd.year = 2000 then cd.population_pct_white end) as population_pct_white_2000,
+    max(case when cd.year = 2000 then cd.population_pct_black end) as population_pct_black_2000,
+    max(case when cd.year = 2000 then cd.population_pct_am_ind end) as population_pct_am_ind_2000,
+    max(case when cd.year = 2000 then cd.population_pct_asian end) as population_pct_asian_2000,
+    max(case when cd.year = 2000 then cd.population_pct_pacific end) as population_pct_pacific_2000,
+    max(case when cd.year = 2000 then cd.population_pct_two_races_nh end) as population_pct_two_races_nh_2000,
+    max(case when cd.year = 2000 then cd.population_pct_hispanic end) as population_pct_hispanic_2000,
+    max(case when cd.year = 2000 then cd.population_pct_over_18 end) as population_pct_over_18_2000,
+        -- Educational Attainment
+    max(case when cd.year = 2000 then cd.bachelor_degree_pct_of_adults end) as bachelor_degree_pct_of_adults_2000,
+        -- Voting results
+    max(case when cd.year = 2000 then cd.votes_democrat end) as votes_democrat_2000,
+    max(case when cd.year = 2000 then cd.votes_republican end) as votes_republican_2000,
+    max(case when cd.year = 2000 then cd.votes_other end) as votes_other_2000,
+    max(case when cd.year = 2000 then cd.votes_total end) as votes_total_2000,
+    max(case when cd.year = 2000 then cd.votes_pct_democrat end) as votes_pct_democrat_2000,
+    max(case when cd.year = 2000 then cd.votes_pct_republican end) as votes_pct_republican_2000,
+    max(case when cd.year = 2000 then cd.votes_pct_other end) as votes_pct_other_2000,
+    max(case when cd.year = 2000 then cd.votes_pct_two_party_democrat end) as votes_pct_two_party_democrat_2000,
+    max(case when cd.year = 2000 then cd.votes_pct_two_party_republican end) as votes_pct_two_party_republican_2000,
+    max(case when cd.year = 2000 then cd.winning_party end) as winning_party_2000,
+    max(case when cd.year = 2000 then cd.winning_margin end) as winning_margin_2000,
+    max(case when cd.year = 2000 then cd.winning_two_party_margin end) as winning_two_party_margin_2000,
+    max(case when cd.year = 2000 then cd.votes_pct_partisan_index end) as votes_pct_partisan_index_2000,
+    -- 2004
+        -- Demographics
+    max(case when cd.year = 2004 then cd.population_total end) as population_total_2004,
+    max(case when cd.year = 2004 then cd.population_white end) as population_white_2004,
+    max(case when cd.year = 2004 then cd.population_black end) as population_black_2004,
+    max(case when cd.year = 2004 then cd.population_am_ind end) as population_am_ind_2004,
+    max(case when cd.year = 2004 then cd.population_asian end) as population_asian_2004,
+    max(case when cd.year = 2004 then cd.population_pacific end) as population_pacific_2004,
+    max(case when cd.year = 2004 then cd.population_two_races_nh end) as population_two_races_nh_2004,
+    max(case when cd.year = 2004 then cd.population_hispanic end) as population_hispanic_2004,
+    max(case when cd.year = 2004 then cd.population_over_18_total end) as population_over_18_total_2004,
+    max(case when cd.year = 2004 then cd.population_pct_white end) as population_pct_white_2004,
+    max(case when cd.year = 2004 then cd.population_pct_black end) as population_pct_black_2004,
+    max(case when cd.year = 2004 then cd.population_pct_am_ind end) as population_pct_am_ind_2004,
+    max(case when cd.year = 2004 then cd.population_pct_asian end) as population_pct_asian_2004,
+    max(case when cd.year = 2004 then cd.population_pct_pacific end) as population_pct_pacific_2004,
+    max(case when cd.year = 2004 then cd.population_pct_two_races_nh end) as population_pct_two_races_nh_2004,
+    max(case when cd.year = 2004 then cd.population_pct_hispanic end) as population_pct_hispanic_2004,
+    max(case when cd.year = 2004 then cd.population_pct_over_18 end) as population_pct_over_18_2004,
+        -- Educational Attainment
+    max(case when cd.year = 2004 then cd.bachelor_degree_pct_of_adults end) as bachelor_degree_pct_of_adults_2004,
+        -- Voting results
+    max(case when cd.year = 2004 then cd.votes_democrat end) as votes_democrat_2004,
+    max(case when cd.year = 2004 then cd.votes_republican end) as votes_republican_2004,
+    max(case when cd.year = 2004 then cd.votes_other end) as votes_other_2004,
+    max(case when cd.year = 2004 then cd.votes_total end) as votes_total_2004,
+    max(case when cd.year = 2004 then cd.votes_pct_democrat end) as votes_pct_democrat_2004,
+    max(case when cd.year = 2004 then cd.votes_pct_republican end) as votes_pct_republican_2004,
+    max(case when cd.year = 2004 then cd.votes_pct_other end) as votes_pct_other_2004,
+    max(case when cd.year = 2004 then cd.votes_pct_two_party_democrat end) as votes_pct_two_party_democrat_2004,
+    max(case when cd.year = 2004 then cd.votes_pct_two_party_republican end) as votes_pct_two_party_republican_2004,
+    max(case when cd.year = 2004 then cd.winning_party end) as winning_party_2004,
+    max(case when cd.year = 2004 then cd.winning_margin end) as winning_margin_2004,
+    max(case when cd.year = 2004 then cd.winning_two_party_margin end) as winning_two_party_margin_2004,
+    max(case when cd.year = 2004 then cd.votes_pct_partisan_index end) as votes_pct_partisan_index_2004,
+    max(case when cd.year = 2004 then cd.votes_pct_swing_from_prev_election end) as votes_pct_swing_from_prev_election_2004,
+    -- 2008
+        -- Demographics
+    max(case when cd.year = 2008 then cd.population_total end) as population_total_2008,
+    max(case when cd.year = 2008 then cd.population_white end) as population_white_2008,
+    max(case when cd.year = 2008 then cd.population_black end) as population_black_2008,
+    max(case when cd.year = 2008 then cd.population_am_ind end) as population_am_ind_2008,
+    max(case when cd.year = 2008 then cd.population_asian end) as population_asian_2008,
+    max(case when cd.year = 2008 then cd.population_pacific end) as population_pacific_2008,
+    max(case when cd.year = 2008 then cd.population_two_races_nh end) as population_two_races_nh_2008,
+    max(case when cd.year = 2008 then cd.population_hispanic end) as population_hispanic_2008,
+    max(case when cd.year = 2008 then cd.population_over_18_total end) as population_over_18_total_2008,
+    max(case when cd.year = 2008 then cd.population_pct_white end) as population_pct_white_2008,
+    max(case when cd.year = 2008 then cd.population_pct_black end) as population_pct_black_2008,
+    max(case when cd.year = 2008 then cd.population_pct_am_ind end) as population_pct_am_ind_2008,
+    max(case when cd.year = 2008 then cd.population_pct_asian end) as population_pct_asian_2008,
+    max(case when cd.year = 2008 then cd.population_pct_pacific end) as population_pct_pacific_2008,
+    max(case when cd.year = 2008 then cd.population_pct_two_races_nh end) as population_pct_two_races_nh_2008,
+    max(case when cd.year = 2008 then cd.population_pct_hispanic end) as population_pct_hispanic_2008,
+    max(case when cd.year = 2008 then cd.population_pct_over_18 end) as population_pct_over_18_2008,
+        -- Educational Attainment
+    max(case when cd.year = 2008 then cd.bachelor_degree_pct_of_adults end) as bachelor_degree_pct_of_adults_2008,
+        -- Voting results
+    max(case when cd.year = 2008 then cd.votes_democrat end) as votes_democrat_2008,
+    max(case when cd.year = 2008 then cd.votes_republican end) as votes_republican_2008,
+    max(case when cd.year = 2008 then cd.votes_other end) as votes_other_2008,
+    max(case when cd.year = 2008 then cd.votes_total end) as votes_total_2008,
+    max(case when cd.year = 2008 then cd.votes_pct_democrat end) as votes_pct_democrat_2008,
+    max(case when cd.year = 2008 then cd.votes_pct_republican end) as votes_pct_republican_2008,
+    max(case when cd.year = 2008 then cd.votes_pct_other end) as votes_pct_other_2008,
+    max(case when cd.year = 2008 then cd.votes_pct_two_party_democrat end) as votes_pct_two_party_democrat_2008,
+    max(case when cd.year = 2008 then cd.votes_pct_two_party_republican end) as votes_pct_two_party_republican_2008,
+    max(case when cd.year = 2008 then cd.winning_party end) as winning_party_2008,
+    max(case when cd.year = 2008 then cd.winning_margin end) as winning_margin_2008,
+    max(case when cd.year = 2008 then cd.winning_two_party_margin end) as winning_two_party_margin_2008,
+    max(case when cd.year = 2008 then cd.votes_pct_partisan_index end) as votes_pct_partisan_index_2008,
+    max(case when cd.year = 2008 then cd.votes_pct_swing_from_prev_election end) as votes_pct_swing_from_prev_election_2008,
+    -- 2012
+        -- Demographics
+    max(case when cd.year = 2012 then cd.population_total end) as population_total_2012,
+    max(case when cd.year = 2012 then cd.population_white end) as population_white_2012,
+    max(case when cd.year = 2012 then cd.population_black end) as population_black_2012,
+    max(case when cd.year = 2012 then cd.population_am_ind end) as population_am_ind_2012,
+    max(case when cd.year = 2012 then cd.population_asian end) as population_asian_2012,
+    max(case when cd.year = 2012 then cd.population_pacific end) as population_pacific_2012,
+    max(case when cd.year = 2012 then cd.population_two_races_nh end) as population_two_races_nh_2012,
+    max(case when cd.year = 2012 then cd.population_hispanic end) as population_hispanic_2012,
+    max(case when cd.year = 2012 then cd.population_over_18_total end) as population_over_18_total_2012,
+    max(case when cd.year = 2012 then cd.population_pct_white end) as population_pct_white_2012,
+    max(case when cd.year = 2012 then cd.population_pct_black end) as population_pct_black_2012,
+    max(case when cd.year = 2012 then cd.population_pct_am_ind end) as population_pct_am_ind_2012,
+    max(case when cd.year = 2012 then cd.population_pct_asian end) as population_pct_asian_2012,
+    max(case when cd.year = 2012 then cd.population_pct_pacific end) as population_pct_pacific_2012,
+    max(case when cd.year = 2012 then cd.population_pct_two_races_nh end) as population_pct_two_races_nh_2012,
+    max(case when cd.year = 2012 then cd.population_pct_hispanic end) as population_pct_hispanic_2012,
+    max(case when cd.year = 2012 then cd.population_pct_over_18 end) as population_pct_over_18_2012,
+        -- Educational Attainment
+    max(case when cd.year = 2012 then cd.bachelor_degree_pct_of_adults end) as bachelor_degree_pct_of_adults_2012,
+        -- Voting results
+    max(case when cd.year = 2012 then cd.votes_democrat end) as votes_democrat_2012,
+    max(case when cd.year = 2012 then cd.votes_republican end) as votes_republican_2012,
+    max(case when cd.year = 2012 then cd.votes_other end) as votes_other_2012,
+    max(case when cd.year = 2012 then cd.votes_total end) as votes_total_2012,
+    max(case when cd.year = 2012 then cd.votes_pct_democrat end) as votes_pct_democrat_2012,
+    max(case when cd.year = 2012 then cd.votes_pct_republican end) as votes_pct_republican_2012,
+    max(case when cd.year = 2012 then cd.votes_pct_other end) as votes_pct_other_2012,
+    max(case when cd.year = 2012 then cd.votes_pct_two_party_democrat end) as votes_pct_two_party_democrat_2012,
+    max(case when cd.year = 2012 then cd.votes_pct_two_party_republican end) as votes_pct_two_party_republican_2012,
+    max(case when cd.year = 2012 then cd.winning_party end) as winning_party_2012,
+    max(case when cd.year = 2012 then cd.winning_margin end) as winning_margin_2012,
+    max(case when cd.year = 2012 then cd.winning_two_party_margin end) as winning_two_party_margin_2012,
+    max(case when cd.year = 2012 then cd.votes_pct_partisan_index end) as votes_pct_partisan_index_2012,
+    max(case when cd.year = 2012 then cd.votes_pct_swing_from_prev_election end) as votes_pct_swing_from_prev_election_2012,
+    -- 2016
+        -- Demographics
+    max(case when cd.year = 2016 then cd.population_total end) as population_total_2016,
+    max(case when cd.year = 2016 then cd.population_white end) as population_white_2016,
+    max(case when cd.year = 2016 then cd.population_black end) as population_black_2016,
+    max(case when cd.year = 2016 then cd.population_am_ind end) as population_am_ind_2016,
+    max(case when cd.year = 2016 then cd.population_asian end) as population_asian_2016,
+    max(case when cd.year = 2016 then cd.population_pacific end) as population_pacific_2016,
+    max(case when cd.year = 2016 then cd.population_two_races_nh end) as population_two_races_nh_2016,
+    max(case when cd.year = 2016 then cd.population_hispanic end) as population_hispanic_2016,
+    max(case when cd.year = 2016 then cd.population_over_18_total end) as population_over_18_total_2016,
+    max(case when cd.year = 2016 then cd.population_pct_white end) as population_pct_white_2016,
+    max(case when cd.year = 2016 then cd.population_pct_black end) as population_pct_black_2016,
+    max(case when cd.year = 2016 then cd.population_pct_am_ind end) as population_pct_am_ind_2016,
+    max(case when cd.year = 2016 then cd.population_pct_asian end) as population_pct_asian_2016,
+    max(case when cd.year = 2016 then cd.population_pct_pacific end) as population_pct_pacific_2016,
+    max(case when cd.year = 2016 then cd.population_pct_two_races_nh end) as population_pct_two_races_nh_2016,
+    max(case when cd.year = 2016 then cd.population_pct_hispanic end) as population_pct_hispanic_2016,
+    max(case when cd.year = 2016 then cd.population_pct_over_18 end) as population_pct_over_18_2016,
+        -- Educational Attainment
+    max(case when cd.year = 2016 then cd.bachelor_degree_pct_of_adults end) as bachelor_degree_pct_of_adults_2016,
+        -- Voting results
+    max(case when cd.year = 2016 then cd.votes_democrat end) as votes_democrat_2016,
+    max(case when cd.year = 2016 then cd.votes_republican end) as votes_republican_2016,
+    max(case when cd.year = 2016 then cd.votes_other end) as votes_other_2016,
+    max(case when cd.year = 2016 then cd.votes_total end) as votes_total_2016,
+    max(case when cd.year = 2016 then cd.votes_pct_democrat end) as votes_pct_democrat_2016,
+    max(case when cd.year = 2016 then cd.votes_pct_republican end) as votes_pct_republican_2016,
+    max(case when cd.year = 2016 then cd.votes_pct_other end) as votes_pct_other_2016,
+    max(case when cd.year = 2016 then cd.votes_pct_two_party_democrat end) as votes_pct_two_party_democrat_2016,
+    max(case when cd.year = 2016 then cd.votes_pct_two_party_republican end) as votes_pct_two_party_republican_2016,
+    max(case when cd.year = 2016 then cd.winning_party end) as winning_party_2016,
+    max(case when cd.year = 2016 then cd.winning_margin end) as winning_margin_2016,
+    max(case when cd.year = 2016 then cd.winning_two_party_margin end) as winning_two_party_margin_2016,
+    max(case when cd.year = 2016 then cd.votes_pct_partisan_index end) as votes_pct_partisan_index_2016,
+    max(case when cd.year = 2016 then cd.votes_pct_swing_from_prev_election end) as votes_pct_swing_from_prev_election_2016,
+    -- 2020
+        -- Demographics
+    max(case when cd.year = 2020 then cd.population_total end) as population_total_2020,
+    max(case when cd.year = 2020 then cd.population_white end) as population_white_2020,
+    max(case when cd.year = 2020 then cd.population_black end) as population_black_2020,
+    max(case when cd.year = 2020 then cd.population_am_ind end) as population_am_ind_2020,
+    max(case when cd.year = 2020 then cd.population_asian end) as population_asian_2020,
+    max(case when cd.year = 2020 then cd.population_pacific end) as population_pacific_2020,
+    max(case when cd.year = 2020 then cd.population_two_races_nh end) as population_two_races_nh_2020,
+    max(case when cd.year = 2020 then cd.population_hispanic end) as population_hispanic_2020,
+    max(case when cd.year = 2020 then cd.population_over_18_total end) as population_over_18_total_2020,
+    max(case when cd.year = 2020 then cd.population_pct_white end) as population_pct_white_2020,
+    max(case when cd.year = 2020 then cd.population_pct_black end) as population_pct_black_2020,
+    max(case when cd.year = 2020 then cd.population_pct_am_ind end) as population_pct_am_ind_2020,
+    max(case when cd.year = 2020 then cd.population_pct_asian end) as population_pct_asian_2020,
+    max(case when cd.year = 2020 then cd.population_pct_pacific end) as population_pct_pacific_2020,
+    max(case when cd.year = 2020 then cd.population_pct_two_races_nh end) as population_pct_two_races_nh_2020,
+    max(case when cd.year = 2020 then cd.population_pct_hispanic end) as population_pct_hispanic_2020,
+    max(case when cd.year = 2020 then cd.population_pct_over_18 end) as population_pct_over_18_2020,
+        -- Educational Attainment
+    max(case when cd.year = 2020 then cd.bachelor_degree_pct_of_adults end) as bachelor_degree_pct_of_adults_2020,
+        -- Voting results
+    max(case when cd.year = 2020 then cd.votes_democrat end) as votes_democrat_2020,
+    max(case when cd.year = 2020 then cd.votes_republican end) as votes_republican_2020,
+    max(case when cd.year = 2020 then cd.votes_other end) as votes_other_2020,
+    max(case when cd.year = 2020 then cd.votes_total end) as votes_total_2020,
+    max(case when cd.year = 2020 then cd.votes_pct_democrat end) as votes_pct_democrat_2020,
+    max(case when cd.year = 2020 then cd.votes_pct_republican end) as votes_pct_republican_2020,
+    max(case when cd.year = 2020 then cd.votes_pct_other end) as votes_pct_other_2020,
+    max(case when cd.year = 2020 then cd.votes_pct_two_party_democrat end) as votes_pct_two_party_democrat_2020,
+    max(case when cd.year = 2020 then cd.votes_pct_two_party_republican end) as votes_pct_two_party_republican_2020,
+    max(case when cd.year = 2020 then cd.winning_party end) as winning_party_2020,
+    max(case when cd.year = 2020 then cd.winning_margin end) as winning_margin_2020,
+    max(case when cd.year = 2020 then cd.winning_two_party_margin end) as winning_two_party_margin_2020,
+    max(case when cd.year = 2020 then cd.votes_pct_partisan_index end) as votes_pct_partisan_index_2020,
+    max(case when cd.year = 2020 then cd.votes_pct_swing_from_prev_election end) as votes_pct_swing_from_prev_election_2020,
+    -- 2024
+        -- Demographics
+    max(case when cd.year = 2024 then cd.population_total end) as population_total_2024,
+    max(case when cd.year = 2024 then cd.population_white end) as population_white_2024,
+    max(case when cd.year = 2024 then cd.population_black end) as population_black_2024,
+    max(case when cd.year = 2024 then cd.population_am_ind end) as population_am_ind_2024,
+    max(case when cd.year = 2024 then cd.population_asian end) as population_asian_2024,
+    max(case when cd.year = 2024 then cd.population_pacific end) as population_pacific_2024,
+    max(case when cd.year = 2024 then cd.population_two_races_nh end) as population_two_races_nh_2024,
+    max(case when cd.year = 2024 then cd.population_hispanic end) as population_hispanic_2024,
+    max(case when cd.year = 2024 then cd.population_over_18_total end) as population_over_18_total_2024,
+    max(case when cd.year = 2024 then cd.population_pct_white end) as population_pct_white_2024,
+    max(case when cd.year = 2024 then cd.population_pct_black end) as population_pct_black_2024,
+    max(case when cd.year = 2024 then cd.population_pct_am_ind end) as population_pct_am_ind_2024,
+    max(case when cd.year = 2024 then cd.population_pct_asian end) as population_pct_asian_2024,
+    max(case when cd.year = 2024 then cd.population_pct_pacific end) as population_pct_pacific_2024,
+    max(case when cd.year = 2024 then cd.population_pct_two_races_nh end) as population_pct_two_races_nh_2024,
+    max(case when cd.year = 2024 then cd.population_pct_hispanic end) as population_pct_hispanic_2024,
+    max(case when cd.year = 2024 then cd.population_pct_over_18 end) as population_pct_over_18_2024,
+        -- Educational Attainment
+    max(case when cd.year = 2024 then cd.bachelor_degree_pct_of_adults end) as bachelor_degree_pct_of_adults_2024,
+        -- Voting results
+    max(case when cd.year = 2024 then cd.votes_democrat end) as votes_democrat_2024,
+    max(case when cd.year = 2024 then cd.votes_republican end) as votes_republican_2024,
+    max(case when cd.year = 2024 then cd.votes_other end) as votes_other_2024,
+    max(case when cd.year = 2024 then cd.votes_total end) as votes_total_2024,
+    max(case when cd.year = 2024 then cd.votes_pct_democrat end) as votes_pct_democrat_2024,
+    max(case when cd.year = 2024 then cd.votes_pct_republican end) as votes_pct_republican_2024,
+    max(case when cd.year = 2024 then cd.votes_pct_other end) as votes_pct_other_2024,
+    max(case when cd.year = 2024 then cd.votes_pct_two_party_democrat end) as votes_pct_two_party_democrat_2024,
+    max(case when cd.year = 2024 then cd.votes_pct_two_party_republican end) as votes_pct_two_party_republican_2024,
+    max(case when cd.year = 2024 then cd.winning_party end) as winning_party_2024,
+    max(case when cd.year = 2024 then cd.winning_margin end) as winning_margin_2024,
+    max(case when cd.year = 2024 then cd.winning_two_party_margin end) as winning_two_party_margin_2024,
+    max(case when cd.year = 2024 then cd.votes_pct_partisan_index end) as votes_pct_partisan_index_2024,
+    max(case when cd.year = 2024 then cd.votes_pct_swing_from_prev_election end) as votes_pct_swing_from_prev_election_2024
 from
     final__county_election_data_by_year cd
+group by
+    1,2,3,4,5,6,7,8
 ;
+
+
+-- Checks (should return 0 results)
+-- Unique FIPS
+select county_fips, count(*) from final__county_election_data_overall
+where county_fips is not null
+group by 1 having count(*) > 1 order by 2 desc, 1;
