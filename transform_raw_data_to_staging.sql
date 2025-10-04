@@ -38,6 +38,8 @@ from
 select county_fips, count(*) from staging__county_seats group by 1 having count(*) > 1 order by 2 desc;
 
 
+
+---- County election results for each election ----
 DROP TABLE IF EXISTS staging__county_election_results_by_year;
 CREATE TABLE staging__county_election_results_by_year AS
 select
@@ -210,9 +212,7 @@ from staging__county_election_results_by_year
 where round((votes_pct_democrat + votes_pct_republican + votes_pct_other), 2) <> 1.00;
 
 
-
-
-
+---- Flattened county election results table ----
 -- Create a table with one row per FIPS across all years. Purpose is to make it easier to do bucketing and correlation.
 DROP TABLE IF EXISTS staging__county_election_results_overall;
 CREATE TABLE staging__county_election_results_overall AS
@@ -326,13 +326,13 @@ group by 1 having count(*) > 1 order by 2 desc,1;
 
 
 
+----  County age and ethnicity demographics ----
 -- Combine the demographic data together from these separate files. Granularity should be FIPS + Year first, to match results by year.
     -- select * from raw_data__nber__coest00intalldata limit 100;  -- 2000s
     -- select * from raw_data__us_census_bureau__cc-est2019-alldata limit 100;  -- 2010s
     -- select * from raw_data__us_census_bureau__county_demographics_2020 limit 100;  -- 2020s
-
-DROP TABLE IF EXISTS staging__county_demographics_by_year__formatted;
-CREATE TABLE staging__county_demographics_by_year__formatted AS
+DROP TABLE IF EXISTS staging__county_demographics_by_year;
+CREATE TABLE staging__county_demographics_by_year AS
 select
     a.*,
     round(a.population_white / cast(a.population_total as float), 5) as population_pct_white,
@@ -361,9 +361,22 @@ select
 from
     (
     select
-        case when length(county) = 4 then '0' else '' end
-            || county as county_fips,
-        ctyname as county_name,
+        case
+            case when length(county) = 4 then '0' || county else '' || county end
+            when '46113' then '46102'
+            when '51515' then '51019'
+            else case when length(county) = 4 then '0' || county else '' || county end
+        end as county_fips,
+        case
+            -- 2000 files needs fips and county name adjustments for a couple exceptions
+            when county = '46113' then 'Oglala Lakota County'
+            when county = '51515' then 'Bedford County' 
+            -- Aggregation will break due to small naming differences between files, if not corrected.
+            when ctyname = 'DoÒa Ana County' and stname = 'New Mexico' then 'Doña Ana County'
+            when ctyname = 'La Salle Parish' and stname = 'Louisiana' then 'LaSalle Parish'
+            when ctyname = 'Petersburg Census Area' and stname = 'Alaska' then 'Petersburg Borough'   
+            else ctyname
+        end as county_name,
         stname as state_name,
         year,
         sum(case when agegrp = 99 then tot_pop else 0 end) as population_total,
@@ -412,7 +425,12 @@ from
             || cast(state as text) 
             || case when length(cast(county as text)) = 1 then '00' when length(cast(county as text)) = 2 then '0' else '' end 
             || county as county_fips,
-        ctyname as county_name,
+        -- Aggregation will break due to small naming differences between files, if not corrected.
+        case when ctyname = 'DoÒa Ana County' and stname = 'New Mexico' then 'Doña Ana County'
+            when ctyname = 'La Salle Parish' and stname = 'Louisiana' then 'LaSalle Parish'
+            when ctyname = 'Petersburg Census Area' and stname = 'Alaska' then 'Petersburg Borough'   
+            else ctyname 
+        end as county_name,
         stname as state_name,
         case when year = 5 then 2012 when year = 9 then 2016 when year = 12 then 2020 end as year,
         sum(case when agegrp = 0 then tot_pop else 0 end) as population_total,
@@ -463,7 +481,12 @@ from
             || cast(state as text) 
             || case when length(cast(county as text)) = 1 then '00' when length(cast(county as text)) = 2 then '0' else '' end 
             || county as county_fips,
-        ctyname as county_name,
+        -- Aggregation will break due to small naming differences between files, if not corrected.
+        case when ctyname = 'DoÒa Ana County' and stname = 'New Mexico' then 'Doña Ana County'
+            when ctyname = 'La Salle Parish' and stname = 'Louisiana' then 'LaSalle Parish'  
+            when ctyname = 'Petersburg Census Area' and stname = 'Alaska' then 'Petersburg Borough'      
+            else ctyname 
+        end as county_name,
         stname as state_name,
         2024 as year,
         sum(case when agegrp = 0 then tot_pop else 0 end) as population_total,
@@ -511,7 +534,12 @@ from
             || cast(state as text) 
             || case when length(cast(county as text)) = 1 then '00' when length(cast(county as text)) = 2 then '0' else '' end 
             || county as county_fips,
-        ctyname as county_name,
+        -- Aggregation will break due to small naming differences between files, if not corrected.
+        case when ctyname = 'DoÒa Ana County' and stname = 'New Mexico' then 'Doña Ana County'
+            when ctyname = 'La Salle Parish' and stname = 'Louisiana' then 'LaSalle Parish'
+            when ctyname = 'Petersburg Census Area' and stname = 'Alaska' then 'Petersburg Borough'
+            else ctyname 
+        end as county_name,
         stname as state_name,
         case when year = 2 then 2020
             when year = 6 then 2024
@@ -559,3 +587,256 @@ from
     ) a
 ;
 
+-- Checks (should return 0 results)
+---- Unique fips_code by year (ignoring blanks)
+select county_fips, year, count(*) from staging__county_demographics_by_year
+where county_fips is not null
+group by 1,2 having count(*) > 1 order by 3 desc, 1, 2;
+---- Each county_fips has 7 data points (2000, 2004, ...., 2024)
+select county_fips, count(*) from staging__county_demographics_by_year
+where county_fips is not null
+    -- Exception, a few census areas in Alaska that were created or ended in this time period
+    and county_fips not in ('02063', '02066', '02158', '02261', '02270')
+group by 1 having count(*) <> 7 order by 2 desc, 1;
+
+
+---- County age and demographics, flattened ----
+-- Create flattened table with one row per FIPS across all years.
+    -- Include subset of columns / years to have some change over time without an obscene number of columns
+DROP TABLE IF EXISTS staging__county_demographics_overall;
+CREATE TABLE staging__county_demographics_overall AS
+select
+    county_fips,
+    county_name,
+    state_name,
+    max(case when year = 2000 then population_total else 0 end) as population_total_2000,
+    max(case when year = 2004 then population_total else 0 end) as population_total_2004,
+    max(case when year = 2008 then population_total else 0 end) as population_total_2008,
+    max(case when year = 2012 then population_total else 0 end) as population_total_2012,
+    max(case when year = 2016 then population_total else 0 end) as population_total_2016,
+    max(case when year = 2020 then population_total else 0 end) as population_total_2020,
+    max(case when year = 2000 then population_pct_white else 0 end) as population_pct_white_2000,
+    max(case when year = 2000 then population_pct_black else 0 end) as population_pct_black_2000,
+    max(case when year = 2000 then population_pct_am_ind else 0 end) as population_pct_am_ind_2000,
+    max(case when year = 2000 then population_pct_asian else 0 end) as population_pct_asian_2000,
+    max(case when year = 2000 then population_pct_pacific else 0 end) as population_pct_pacific_2000,
+    max(case when year = 2000 then population_pct_two_races_nh else 0 end) as population_pct_two_races_nh_2000,
+    max(case when year = 2000 then population_pct_hispanic else 0 end) as population_pct_hispanic_2000,
+    max(case when year = 2000 then population_pct_over_18 else 0 end) as population_pct_over_18_2000,
+    max(case when year = 2000 then population_pct_under_18 else 0 end) as population_pct_under_18_2000,
+    max(case when year = 2000 then population_pct_18_to_24 else 0 end) as population_pct_18_to_24_2000,
+    max(case when year = 2020 then population_pct_white else 0 end) as population_pct_white_2020,
+    max(case when year = 2020 then population_pct_black else 0 end) as population_pct_black_2020,
+    max(case when year = 2020 then population_pct_am_ind else 0 end) as population_pct_am_ind_2020,
+    max(case when year = 2020 then population_pct_asian else 0 end) as population_pct_asian_2020,
+    max(case when year = 2020 then population_pct_pacific else 0 end) as population_pct_pacific_2020,
+    max(case when year = 2020 then population_pct_two_races_nh else 0 end) as population_pct_two_races_nh_2020,
+    max(case when year = 2020 then population_pct_hispanic else 0 end) as population_pct_hispanic_2020,
+    max(case when year = 2020 then population_pct_over_18 else 0 end) as population_pct_over_18_2020,
+    max(case when year = 2020 then population_pct_under_18 else 0 end) as population_pct_under_18_2020,
+    max(case when year = 2020 then population_pct_18_to_24 else 0 end) as population_pct_18_to_24_2020,
+    -- Deltas between 2000 and 2020
+    max(case when year = 2020 then population_pct_white else 0 end) - max(case when year = 2000 then population_pct_white else 0 end)
+        as population_pct_white_change_2000_to_2020,
+    max(case when year = 2020 then population_pct_black else 0 end) - max(case when year = 2000 then population_pct_black else 0 end)
+        as population_pct_white_change_2000_to_2020,
+    max(case when year = 2020 then population_pct_am_ind else 0 end) - max(case when year = 2000 then population_pct_am_ind else 0 end)
+        as population_pct_white_change_2000_to_2020,
+    max(case when year = 2020 then population_pct_asian else 0 end) - max(case when year = 2000 then population_pct_asian else 0 end)
+        as population_pct_white_change_2000_to_2020,
+    max(case when year = 2020 then population_pct_pacific else 0 end) - max(case when year = 2000 then population_pct_pacific else 0 end)
+        as population_pct_white_change_2000_to_2020,
+    max(case when year = 2020 then population_pct_two_races_nh else 0 end) - max(case when year = 2000 then population_pct_two_races_nh else 0 end)
+        as population_pct_white_change_2000_to_2020,
+    max(case when year = 2020 then population_pct_hispanic else 0 end) - max(case when year = 2000 then population_pct_hispanic else 0 end)
+        as population_pct_white_change_2000_to_2020
+from
+    staging__county_demographics_by_year
+group by 1,2,3
+;
+
+-- Checks (should return 0 results)
+-- Unique FIPS
+select county_fips, count(*) from staging__county_demographics_overall
+where county_fips is not null
+group by 1 having count(*) > 1 order by 2 desc, 1;
+
+-- No county has over 3x the population in any year, as in 2000
+-- Conversely, no county has over 3x the population in 2000 as in any other year
+-- Pinal County, AZ is the fastest-growing county, went from 179,727 to 425,264 from 2000-20, that is the baseline.
+select * from staging__county_demographics_overall
+where population_total_2020 / population_total_2000 > 3
+    or population_total_2016 / population_total_2000 > 3
+    or population_total_2012 / population_total_2000 > 3
+    or population_total_2008 / population_total_2000 > 3
+    or population_total_2004 / population_total_2000 > 3
+    or population_total_2000 / population_total_2020 > 3
+    or population_total_2000 / population_total_2016 > 3
+    or population_total_2000 / population_total_2012 > 3
+    or population_total_2000 / population_total_2008 > 3
+    or population_total_2000 / population_total_2004 > 3
+;
+
+-- Check that ethnic groups are MECE
+select * from staging__county_demographics_overall 
+where
+    -- 2000 subgroups should add up to 100% (or 0% for a few census areas in Alaska that drop on and off)
+   round((population_pct_white_2000 + population_pct_black_2000 + population_pct_am_ind_2000 + population_pct_asian_2000
+        + population_pct_pacific_2000 + population_pct_two_races_nh_2000 + population_pct_hispanic_2000),
+        3) not in (0, 1.00)
+    -- 2020 should add up to 100% (or 0% for a few census areas in Alaska that drop on and off)
+    or round((population_pct_white_2020 + population_pct_black_2020 + population_pct_am_ind_2020 + population_pct_asian_2020
+        + population_pct_pacific_2020 + population_pct_two_races_nh_2020 + population_pct_hispanic_2020), 3) not in (0, 1.00)
+;
+
+
+
+---- County economic data. Median income and poverty rate ----
+-- NOTE: There were some other files that have this data in other years but they were plagued with missing values, etc.
+-- For our purposes we can use 2010 numbers as a proxy for the 2000-24 time period.
+DROP TABLE IF EXISTS staging__county_economics_overall;
+CREATE TABLE staging__county_economics_overall AS
+select
+    state_fips
+        || case when length(replace(cast(county_fips as string), '.0', '')) = 1 then '00'
+            when length(replace(cast(county_fips as string), '.0', '')) = 2 then '0'
+            else '' end
+        || replace(cast(county_fips as string), '.0', '')
+        as county_fips,
+    state_code,
+    county_name,
+    cast(replace(median_household_income_2010, ',', '') as int) as median_household_income_2010,
+    poverty_pct_overall_2010 / 100.0 as poverty_pct_overall_2010,
+    poverty_pct_under_18_2010 / 100.0 as poverty_pct_under_18_2010
+from
+    (
+    select "State FIPS" as state_fips, "County FIPS" as county_fips, "Postal" as state_code, "Name" as county_name,
+    "Median Household Income" as median_household_income_2010, "Poverty Percent All Ages" as poverty_pct_overall_2010,
+    "Poverty Percent Under Age 18" as poverty_pct_under_18_2010
+    from raw_data__us_census_bureau__county_income_2010
+    ) a
+;
+
+-- Checks (should return 0 results)
+-- Unique FIPS
+select county_fips, count(*) from staging__county_economics_overall
+where county_fips is not null
+group by 1 having count(*) > 1 order by 2 desc, 1;
+
+-- No poverty levels below 0 or over 1.00
+select * from staging__county_economics_overall
+where poverty_pct_overall_2010 < 0 or poverty_pct_overall_2010 > 1
+    or poverty_pct_under_18_2010 < 0 or poverty_pct_under_18_2010 > 1;
+
+
+
+---- Educational Attainment ----
+    -- Elongate to one row per year, interpolate where years fall between the data points.
+DROP TABLE IF EXISTS staging__county_educational_attainment_by_year;
+CREATE TABLE staging__county_educational_attainment_by_year AS
+select
+    case when length(cast("FIPS Code" as text)) = 4 then '0' else '' end
+     || "FIPS Code" as county_fips,
+    2000 as year,
+    max(case when "Attribute" = 'Percent of adults with a bachelor''s degree or higher, 2000'
+        then "Value" / 100.00 end) as bachelor_degree_pct_of_adults
+from raw_data__usda__education2023
+group by 1
+    union all
+select
+    case when length(cast("FIPS Code" as text)) = 4 then '0' else '' end
+     || "FIPS Code" as county_fips,
+    2004 as year,
+    -- Interpolate between two data points
+    (max(case when "Attribute" = 'Percent of adults with a bachelor''s degree or higher, 2000'
+        then "Value" / 100.00 end)
+    + max(case when "Attribute" = 'Percent of adults with a bachelor''s degree or higher, 2008-12'
+        then "Value" / 100.00 end)) / 2 as bachelor_degree_pct_of_adults
+from raw_data__usda__education2023
+group by 1
+    union all
+select
+    case when length(cast("FIPS Code" as text)) = 4 then '0' else '' end
+     || "FIPS Code" as county_fips,
+    2008 as year,
+    max(case when "Attribute" = 'Percent of adults with a bachelor''s degree or higher, 2008-12'
+        then "Value" / 100.00 end) as bachelor_degree_pct_of_adults
+from raw_data__usda__education2023
+group by 1
+    union all
+select
+    case when length(cast("FIPS Code" as text)) = 4 then '0' else '' end
+     || "FIPS Code" as county_fips,
+    2012 as year,
+    max(case when "Attribute" = 'Percent of adults with a bachelor''s degree or higher, 2008-12'
+        then "Value" / 100.00 end) as bachelor_degree_pct_of_adults
+from raw_data__usda__education2023
+group by 1
+    union all
+select
+    case when length(cast("FIPS Code" as text)) = 4 then '0' else '' end
+     || "FIPS Code" as county_fips,
+    2016 as year,
+    -- Interpolate between two data points
+    (max(case when "Attribute" = 'Percent of adults with a bachelor''s degree or higher, 2008-12'
+        then "Value" / 100.00 end)
+    + max(case when "Attribute" = 'Percent of adults with a bachelor''s degree or higher, 2019-23'
+        then "Value" / 100.00 end)) / 2 as bachelor_degree_pct_of_adults
+from raw_data__usda__education2023
+group by 1
+    union all
+select
+    case when length(cast("FIPS Code" as text)) = 4 then '0' else '' end
+     || "FIPS Code" as county_fips,
+    2020 as year,
+    max(case when "Attribute" = 'Percent of adults with a bachelor''s degree or higher, 2019-23'
+        then "Value" / 100.00 end) as bachelor_degree_pct_of_adults
+from raw_data__usda__education2023
+group by 1
+    union all
+select
+    case when length(cast("FIPS Code" as text)) = 4 then '0' else '' end
+     || "FIPS Code" as county_fips,
+    2024 as year,
+    max(case when "Attribute" = 'Percent of adults with a bachelor''s degree or higher, 2019-23'
+        then "Value" / 100.00 end) as bachelor_degree_pct_of_adults
+from raw_data__usda__education2023
+group by 1
+;
+
+-- Checks (should return 0 results)
+---- Unique fips_code by year (ignoring blanks)
+select county_fips, year, count(*) from staging__county_educational_attainment_by_year
+where county_fips is not null
+group by 1,2 having count(*) > 1 order by 3 desc, 1, 2;
+
+---- Pct is between 0 and 1.00
+select * from staging__county_educational_attainment_by_year 
+where bachelor_degree_pct_of_adults < 0 or bachelor_degree_pct_of_adults > 1.00;
+
+
+---- Educational attainment, flattened ----
+DROP TABLE IF EXISTS staging__county_educational_attainment_overall;
+CREATE TABLE staging__county_educational_attainment_overall AS
+select
+    county_fips,
+    max(case when year = 2000 then bachelor_degree_pct_of_adults end) as bachelor_degree_pct_of_adults_2000,
+    max(case when year = 2004 then bachelor_degree_pct_of_adults end) as bachelor_degree_pct_of_adults_2004,
+    max(case when year = 2008 then bachelor_degree_pct_of_adults end) as bachelor_degree_pct_of_adults_2008,
+    max(case when year = 2012 then bachelor_degree_pct_of_adults end) as bachelor_degree_pct_of_adults_2012,
+    max(case when year = 2016 then bachelor_degree_pct_of_adults end) as bachelor_degree_pct_of_adults_2016,
+    max(case when year = 2020 then bachelor_degree_pct_of_adults end) as bachelor_degree_pct_of_adults_2020,
+    max(case when year = 2024 then bachelor_degree_pct_of_adults end) as bachelor_degree_pct_of_adults_2024
+from
+    staging__county_educational_attainment_by_year
+group by 1
+;
+
+-- Checks (should return 0 results)
+-- Unique FIPS
+select county_fips, count(*) from staging__county_educational_attainment_overall
+where county_fips is not null
+group by 1 having count(*) > 1 order by 2 desc, 1;
+
+
+.quit
