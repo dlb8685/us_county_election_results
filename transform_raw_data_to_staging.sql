@@ -16,6 +16,17 @@ This does not include the merging of any files together, joins for analytics, et
 Some naming conventions
 - county_fips: Always rename other FIPS (fips, county_fips_code, etc.) to `county_fips`. Use as first columns for clarity, indexing.
 - county_*: Prefix other columns like "name", etc. to specify `county_name`, etc.
+
+
+Tables Created:
+ - staging__county_seats
+ - staging__county_election_results_by_year
+ - staging__county_election_results_overall
+ - staging__county_demographics_by_year
+ - staging__county_demographics_overall
+ - staging__county_economics_overall
+ - staging__county_educational_attainment_by_year
+ - staging__county_educational_attainment_overall
 */
 
 
@@ -105,7 +116,12 @@ from
                 -- Jackson County and Kansas City, MO have a weird overlap. Most datasets consider them as a single unit but this has them separately.
                 -- Updated the FIPS so that both of these are 29095 (Jackson County).
                 -- Even wikipedia has all results added up under Jackson County.
-                when a.county_fips = '2938000' then '29095'
+                when a.county_fips in ('2938000', '36000') then '29095'
+                -- Spencer County, IN seems to have a FIPS glitch in the 2024 data
+                when a.county_fips = '18146' then '18147'
+                -- Rhode Island did some unfortunate stuff in 2024 in this data set, i.e. 4400105140, 4400109280, etc. breakdowns
+                -- instead of just 44001
+                when substr(a.county_fips, 1, 5) in ('44001', '44003', '44005', '44007', '44009') then substr(a.county_fips, 1, 5)
                 else a.county_fips
             end as county_fips,
             case
@@ -118,7 +134,14 @@ from
                 -- Jackson County and Kansas City, MO have a weird overlap. Most datasets consider them as a single unit but this has them separately.
                 -- Updated the FIPS so that both of these are 29095 (Jackson County).
                 -- Even wikipedia has all results added up under Jackson County.
-                when a.county_fips in ('2938000', '29095') then 'JACKSON'
+                when a.county_fips in ('2938000', '29095', '36000') then 'JACKSON'
+                -- Rhode Island did some unfortunate stuff in 2024 in this data set, i.e. 4400105140, 4400109280, etc. breakdowns
+                -- instead of just 44001
+                when substr(a.county_fips, 1, 5) = '44001' then 'BRISTOL'
+                when substr(a.county_fips, 1, 5) = '44003' then 'KENT'
+                when substr(a.county_fips, 1, 5) = '44005' then 'NEWPORT'
+                when substr(a.county_fips, 1, 5) = '44007' then 'PROVIDENCE'
+                when substr(a.county_fips, 1, 5) = '44009' then 'WASHINGTON'
                 else a.county_name
             end as county_name,
             a.state_name,
@@ -151,33 +174,70 @@ from
                 state as state_name,
                 state_po as state_abbr,
                 year,
-                sum(case when party = 'DEMOCRAT' then candidatevotes else 0 end) as votes_democrat,
-                sum(case when party = 'REPUBLICAN' then candidatevotes else 0 end) as votes_republican,
+                -- There are just several states here with random splits that aren't MECE and are double counted or 4x counted in TX.
+                -- This was a pain to figure out which states did and did not have problems in 2024, collating with third-party state vote totals.
+                sum(case when year < 2024 and party = 'DEMOCRAT' then candidatevotes
+                    when year = 2024 and state_po not in ('AR', 'AZ', 'IA', 'LA', 'OK', 'PA', 'SC', 'TX') and party = 'DEMOCRAT' then candidatevotes
+                    when year = 2024 and state_po in ('AR', 'AZ', 'IA', 'LA', 'OK', 'PA', 'SC', 'TX') and mode in ('TOTAL', 'TOTAL VOTES') and party = 'DEMOCRAT' then candidatevotes
+                    else 0 end) as votes_democrat,
+                sum(case when year < 2024 and party = 'REPUBLICAN' then candidatevotes
+                    when year = 2024 and state_po not in ('AR', 'AZ', 'IA', 'LA', 'OK', 'PA', 'SC', 'TX') and party = 'REPUBLICAN' then candidatevotes
+                    when year = 2024 and state_po in ('AR', 'AZ', 'IA', 'LA', 'OK', 'PA', 'SC', 'TX') and mode in ('TOTAL', 'TOTAL VOTES') and party = 'REPUBLICAN' then candidatevotes
+                    else 0 end) as votes_republican,
                 -- "Helpfully" the data starts to include Undervotes and Overvotes for some counties in 2024,
                 -- Which don't actually count in totalvotes or as a vote for anyone...
-                sum(case when party not in ('DEMOCRAT', 'REPUBLICAN', 'UNDERVOTES', 'OVERVOTES') then candidatevotes else 0 end) as votes_other,
-                sum(case when party not in ('UNDERVOTES', 'OVERVOTES') then candidatevotes else 0 end) as votes_total
+                -- Also some states have their own special format, just why.... especially in the 2024 data.
+                sum(case when year < 2024 and party not in ('DEMOCRAT', 'REPUBLICAN', 'UNDERVOTES', 'OVERVOTES') then candidatevotes
+                    when year = 2024 and state_po not in ('AR', 'AZ', 'IA', 'LA', 'OK', 'PA', 'SC', 'TX') and party not in ('DEMOCRAT', 'REPUBLICAN', 'UNDERVOTES', 'OVERVOTES') then candidatevotes
+                    when year = 2024 and state_po in ('AR', 'AZ', 'IA', 'LA', 'OK', 'PA', 'SC', 'TX') and mode in ('TOTAL', 'TOTAL VOTES') and party not in ('DEMOCRAT', 'REPUBLICAN', 'UNDERVOTES', 'OVERVOTES') then candidatevotes
+                    else 0 end) as votes_other,
+                sum(case when year < 2024 and party not in ('UNDERVOTES', 'OVERVOTES') then candidatevotes
+                    when year = 2024 and state_po not in ('AR', 'AZ', 'IA', 'LA', 'OK', 'PA', 'SC', 'TX') and party not in ('UNDERVOTES', 'OVERVOTES') then candidatevotes
+                    when year = 2024 and state_po in ('AR', 'AZ', 'IA', 'LA', 'OK', 'PA', 'SC', 'TX') and party not in ('UNDERVOTES', 'OVERVOTES') and mode in ('TOTAL', 'TOTAL VOTES') then candidatevotes
+                    else 0 end) as votes_total
             from
                 (
-                select year, state, state_po, county_name, county_fips, candidate, party, candidatevotes, totalvotes, version, mode
+                select year,
+                    case state
+                        when 'NEW HAMPSHIRE' then 'New Hampshire'
+                        when 'NEW JERSEY' then 'New Jersey'
+                        when 'NEW MEXICO' then 'New Mexico'
+                        when 'NEW YORK' then 'New York'
+                        when 'NORTH CAROLINA' then 'North Carolina'
+                        when 'NORTH DAKOTA' then 'North Dakota'
+                        when 'RHODE ISLAND' then 'Rhode Island'
+                        when 'SOUTH CAROLINA' then 'South Carolina'
+                        when 'SOUTH DAKOTA' then 'South Dakota'
+                        when 'WEST VIRGINIA' then 'West Virginia'
+                        else UPPER(SUBSTR(state, 1, 1)) || LOWER(SUBSTR(state, 2))
+                    end as state
+                    , state_po, county_name,
+                    -- 3 counties have what can only be a glitch in 2024 data. Some rows have one FIPS, some have another.
+                    -- Yuma County, AZ. Yuba County, CA. Mitchell County, GA.
+                    case
+                        when year = 2024 and county_fips = 4029.0 then 4027.0
+                        when year = 2024 and county_fips = 6117.0 then 6115.0
+                        when year = 2024 and county_fips = 13203.0 then 13205.0
+                        else county_fips
+                    end as county_fips, candidate, party, candidatevotes, totalvotes, version, mode
                     from raw_data__mit_election_labs__countypres_2000_2024
                     -- The 2024 data has a pretty serious "trap", they have both breakdowns *and* TOTAL VOTES for some states.
                     -- If you add all of those together, you will 2x the actual number of votes.
                     -- But many other states and years *only* have TOTAL VOTES, so you can't just blanket exclude them.
                     -- Here are the states and years where you should actually not count TOTAL VOTES.
-                    where
+                    /*where
                         not (
                         (year = 2024 and state_po in ('AZ', 'IA') and mode = 'TOTAL VOTES'
                         -- AZ has crazy splits for every county *except* Maricopa which is like 80% of their votes. Face palm.
                         and county_fips not in (4015))
-                        )
+                        )*/
                 union all
                 -- The source data was straight up missing vote totals for a couple of party/fips combos in 2024.
                 -- These are added synthetically.
-                select 2024 as year, 'CALIFORNIA' as state, 'CA' as state_po, 'SUTTER' as county_name, 6101.0 as county_fips,
+                select 2024 as year, 'California' as state, 'CA' as state_po, 'SUTTER' as county_name, 6101.0 as county_fips,
                     'KAMALA D HARRIS' as candidate, 'DEMOCRAT' as party, 13016 as candidatevotes, 39336 as totalvotes, 20250821 as version, 'TOTAL VOTES' as mode
                 union all
-                select 2024 as year, 'CALIFORNIA' as state, 'CA' as state_po, 'YUBA' as county_name, 6117.0 as county_fips,
+                select 2024 as year, 'California' as state, 'CA' as state_po, 'YUBA' as county_name, 6115.0 as county_fips,
                     'DONALD J TRUMP' as candidate, 'REPUBLICAN' as party, 18491 as candidatevotes, 30070 as totalvotes, 20250821 as version, 'TOTAL VOTES' as mode
                 ) t
             group by 
@@ -363,13 +423,13 @@ from
     select
         case
             case when length(county) = 4 then '0' || county else '' || county end
-            when '46113' then '46102'
+            when '46102' then '46113'
             when '51515' then '51019'
             else case when length(county) = 4 then '0' || county else '' || county end
         end as county_fips,
         case
             -- 2000 files needs fips and county name adjustments for a couple exceptions
-            when county = '46113' then 'Oglala Lakota County'
+            when county in ('46102', '46113') then 'Oglala Lakota County'
             when county = '51515' then 'Bedford County' 
             -- Aggregation will break due to small naming differences between files, if not corrected.
             when ctyname = 'DoÒa Ana County' and stname = 'New Mexico' then 'Doña Ana County'
@@ -421,10 +481,17 @@ from
     group by 1,2,3,4
     union all 
     select
-        case when length(cast(state as text)) = 1 then '0' else '' end
-            || cast(state as text) 
-            || case when length(cast(county as text)) = 1 then '00' when length(cast(county as text)) = 2 then '0' else '' end 
-            || county as county_fips,
+        case
+            case when length(cast(state as text)) = 1 then '0' else '' end
+                || cast(state as text) 
+                || case when length(cast(county as text)) = 1 then '00' when length(cast(county as text)) = 2 then '0' else '' end 
+                || county
+            when '46102' then '46113'
+            else case when length(cast(state as text)) = 1 then '0' else '' end
+                || cast(state as text) 
+                || case when length(cast(county as text)) = 1 then '00' when length(cast(county as text)) = 2 then '0' else '' end 
+                || county
+        end as county_fips,
         -- Aggregation will break due to small naming differences between files, if not corrected.
         case when ctyname = 'DoÒa Ana County' and stname = 'New Mexico' then 'Doña Ana County'
             when ctyname = 'La Salle Parish' and stname = 'Louisiana' then 'LaSalle Parish'
@@ -477,10 +544,17 @@ from
     union all
     -- Get a second row with CT data and label it 2024.
     select
-        case when length(cast(state as text)) = 1 then '0' else '' end
-            || cast(state as text) 
-            || case when length(cast(county as text)) = 1 then '00' when length(cast(county as text)) = 2 then '0' else '' end 
-            || county as county_fips,
+        case
+            case when length(cast(state as text)) = 1 then '0' else '' end
+                || cast(state as text) 
+                || case when length(cast(county as text)) = 1 then '00' when length(cast(county as text)) = 2 then '0' else '' end 
+                || county
+            when '46102' then '46113'
+            else case when length(cast(state as text)) = 1 then '0' else '' end
+                || cast(state as text) 
+                || case when length(cast(county as text)) = 1 then '00' when length(cast(county as text)) = 2 then '0' else '' end 
+                || county
+        end as county_fips,
         -- Aggregation will break due to small naming differences between files, if not corrected.
         case when ctyname = 'DoÒa Ana County' and stname = 'New Mexico' then 'Doña Ana County'
             when ctyname = 'La Salle Parish' and stname = 'Louisiana' then 'LaSalle Parish'  
@@ -530,10 +604,25 @@ from
     group by 1,2,3,4
     union all
     select
-        case when length(cast(state as text)) = 1 then '0' else '' end
-            || cast(state as text) 
-            || case when length(cast(county as text)) = 1 then '00' when length(cast(county as text)) = 2 then '0' else '' end 
-            || county as county_fips,
+        case
+            -- In the 2024 dataset, Rhode Island needs a lot of massaging b/c they include a bunch of granular units instead of the country itself.
+            -- i.e instead of '44009', there is '4400914500', '4400925300', '4400935380', ...
+            substr(case when length(cast(state as text)) = 1 then '0' else '' end
+                || cast(state as text) 
+                || case when length(cast(county as text)) = 1 then '00' when length(cast(county as text)) = 2 then '0' else '' end 
+                || county, 1, 5)
+            when '44009' then '44009'
+            when '44007' then '44007'
+            when '44005' then '44005'
+            when '44003' then '44003'
+            when '44001' then '44001'
+            -- Oglala Lakota County in SD
+            when '46102' then '46113'
+            else case when length(cast(state as text)) = 1 then '0' else '' end
+                || cast(state as text) 
+                || case when length(cast(county as text)) = 1 then '00' when length(cast(county as text)) = 2 then '0' else '' end 
+                || county
+        end as county_fips,
         -- Aggregation will break due to small naming differences between files, if not corrected.
         case when ctyname = 'DoÒa Ana County' and stname = 'New Mexico' then 'Doña Ana County'
             when ctyname = 'La Salle Parish' and stname = 'Louisiana' then 'LaSalle Parish'
@@ -706,8 +795,8 @@ select
     state_code,
     county_name,
     cast(replace(median_household_income_2010, ',', '') as int) as median_household_income_2010,
-    poverty_pct_overall_2010 / 100.0 as poverty_pct_overall_2010,
-    poverty_pct_under_18_2010 / 100.0 as poverty_pct_under_18_2010
+    round(poverty_pct_overall_2010 / 100.0, 5) as poverty_pct_overall_2010,
+    round(poverty_pct_under_18_2010 / 100.0, 5) as poverty_pct_under_18_2010
 from
     (
     select "State FIPS" as state_fips, "County FIPS" as county_fips, "Postal" as state_code, "Name" as county_name,
@@ -738,8 +827,8 @@ select
     case when length(cast("FIPS Code" as text)) = 4 then '0' else '' end
      || "FIPS Code" as county_fips,
     2000 as year,
-    max(case when "Attribute" = 'Percent of adults with a bachelor''s degree or higher, 2000'
-        then "Value" / 100.00 end) as bachelor_degree_pct_of_adults
+    round(max(case when "Attribute" = 'Percent of adults with a bachelor''s degree or higher, 2000'
+        then "Value" / 100.00 end), 5) as bachelor_degree_pct_of_adults
 from raw_data__usda__education2023
 group by 1
     union all
@@ -748,10 +837,10 @@ select
      || "FIPS Code" as county_fips,
     2004 as year,
     -- Interpolate between two data points
-    (max(case when "Attribute" = 'Percent of adults with a bachelor''s degree or higher, 2000'
+    round((max(case when "Attribute" = 'Percent of adults with a bachelor''s degree or higher, 2000'
         then "Value" / 100.00 end)
     + max(case when "Attribute" = 'Percent of adults with a bachelor''s degree or higher, 2008-12'
-        then "Value" / 100.00 end)) / 2 as bachelor_degree_pct_of_adults
+        then "Value" / 100.00 end)) / 2, 5) as bachelor_degree_pct_of_adults
 from raw_data__usda__education2023
 group by 1
     union all
@@ -768,8 +857,8 @@ select
     case when length(cast("FIPS Code" as text)) = 4 then '0' else '' end
      || "FIPS Code" as county_fips,
     2012 as year,
-    max(case when "Attribute" = 'Percent of adults with a bachelor''s degree or higher, 2008-12'
-        then "Value" / 100.00 end) as bachelor_degree_pct_of_adults
+    round(max(case when "Attribute" = 'Percent of adults with a bachelor''s degree or higher, 2008-12'
+        then "Value" / 100.00 end), 5) as bachelor_degree_pct_of_adults
 from raw_data__usda__education2023
 group by 1
     union all
@@ -778,10 +867,10 @@ select
      || "FIPS Code" as county_fips,
     2016 as year,
     -- Interpolate between two data points
-    (max(case when "Attribute" = 'Percent of adults with a bachelor''s degree or higher, 2008-12'
+    round((max(case when "Attribute" = 'Percent of adults with a bachelor''s degree or higher, 2008-12'
         then "Value" / 100.00 end)
     + max(case when "Attribute" = 'Percent of adults with a bachelor''s degree or higher, 2019-23'
-        then "Value" / 100.00 end)) / 2 as bachelor_degree_pct_of_adults
+        then "Value" / 100.00 end)) / 2, 5) as bachelor_degree_pct_of_adults
 from raw_data__usda__education2023
 group by 1
     union all
@@ -789,8 +878,8 @@ select
     case when length(cast("FIPS Code" as text)) = 4 then '0' else '' end
      || "FIPS Code" as county_fips,
     2020 as year,
-    max(case when "Attribute" = 'Percent of adults with a bachelor''s degree or higher, 2019-23'
-        then "Value" / 100.00 end) as bachelor_degree_pct_of_adults
+    round(max(case when "Attribute" = 'Percent of adults with a bachelor''s degree or higher, 2019-23'
+        then "Value" / 100.00 end), 5) as bachelor_degree_pct_of_adults
 from raw_data__usda__education2023
 group by 1
     union all
@@ -798,8 +887,8 @@ select
     case when length(cast("FIPS Code" as text)) = 4 then '0' else '' end
      || "FIPS Code" as county_fips,
     2024 as year,
-    max(case when "Attribute" = 'Percent of adults with a bachelor''s degree or higher, 2019-23'
-        then "Value" / 100.00 end) as bachelor_degree_pct_of_adults
+    round(max(case when "Attribute" = 'Percent of adults with a bachelor''s degree or higher, 2019-23'
+        then "Value" / 100.00 end), 5) as bachelor_degree_pct_of_adults
 from raw_data__usda__education2023
 group by 1
 ;
