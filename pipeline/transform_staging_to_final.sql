@@ -13,6 +13,10 @@ Tables Used from Staging:
  - staging__county_economics_overall
  - staging__county_educational_attainment_by_year
  - staging__county_educational_attainment_overall
+ 
+Tables created in this script:
+ - final__county_election_data_by_year
+ - final__county_election_data_overall
 */
 
 
