@@ -93,9 +93,12 @@ def update_map(selected_year, selected_state):
         # This config will center the map based on which state is selected.
         center_map_params = cfg.STATE_MAP_PARAMS.get(selected_state, cfg.STATE_MAP_PARAMS["All"])
         fig.update_geos(
-            scope=center_map_params["scope"],
+            # only apply scope if projection is albers usa
+            # A few western states are set to Mercator so they don't slant way offline.
+            scope="usa" if center_map_params.get("projection_type", "albers usa") == "albers usa" else None,
             center=center_map_params["center"],
             projection_scale=center_map_params["projection_scale"],
+            projection_type=center_map_params.get("projection_type", "albers usa"),
             visible=False
         )
     else:
@@ -109,7 +112,6 @@ def update_map(selected_year, selected_state):
             projection_scale=center_map_params["projection_scale"],
             visible=False
         )
-
     fig.update_layout(
         title_x=0.5,
         margin={"r":0,"t":40,"l":0,"b":0}
