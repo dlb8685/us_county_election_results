@@ -3,6 +3,7 @@
 /data/*
 us_county_election_results.db
 us_county_election_results_venv
+dash_app_venv
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
