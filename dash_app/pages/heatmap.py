@@ -107,7 +107,7 @@ def update_heatmap(state, year, color_dim):
             x=[r["x"] + r["dx"]/2],
             y=[r["y"] + r["dy"]/2],
             mode="markers",
-            marker=dict(size=0.1, opacity=0, color=fill_color),
+            marker=dict(size=max(r["dx"], r["dy"]) * 5, opacity=0, color=fill_color),
             hovertemplate=(
                 f"<b>{name}</b><br>"
                 f"{size_dim}: {dff[size_dim].iloc[i]:,}<br>"
