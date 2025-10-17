@@ -28,9 +28,8 @@ layout = html.Div([
             html.Label("State"),
             dcc.Dropdown(
                 id="state-dropdown",
-                options=([{"label": "All States", "value": "ALL"}] +
-                         [{"label": s, "value": s} for s in sorted(df["state_name"].unique())]),
-                value="ALL",
+                options=([{"label": s, "value": s} for s in sorted(df["state_name"].unique())]),
+                value="Alabama",
                 clearable=False
             )
         ], style={"width": "30%", "display": "inline-block"}),
@@ -75,38 +74,40 @@ def update_heatmap(state, year, color_dim):
     dff = dff.dropna(subset=[color_dim, size_dim])
     dff = dff.sort_values(size_dim, ascending=False).head(200)
 
-    # Compute squarified layout
-    normed = dff[size_dim] / dff[size_dim].sum()
-    rects = squarify.squarify(normed, 0, 0, 100, 100)
+    # --- squarify expects sizes that sum to width*height ---
+    W, H = 100, 100
+    sizes = dff[size_dim].astype(float).clip(lower=1e-9).to_list()
+    normed = squarify.normalize_sizes(sizes, W, H)
+    rects = squarify.squarify(normed, 0, 0, W, H)  # list of dicts with x,y,dx,dy
 
-    # If categorical (like margin_bin), use discrete color map
     color_values = dff[color_dim].astype(str)
     discrete_map = cfg.CUSTOM_RED_BLUE_COLOR_SCALE
     color_order = cfg.WINNING_MARGIN_LABELS
 
     fig = go.Figure()
 
-    # Draw one rectangle per county
+    # --- draw non-overlapping rectangles ---
     for i, r in enumerate(rects):
-        name = (
-            dff["county_name"].iloc[i]
-            if "county_name" in dff.columns
-            else dff["county_fips"].iloc[i]
-        )
+        name = dff["county_name"].iloc[i] if "county_name" in dff.columns else dff["county_fips"].iloc[i]
         cat = color_values.iloc[i]
-        fill_color = discrete_map.get(cat, "#cccccc")  # fallback color
+        fill_color = discrete_map.get(cat, "#cccccc")
+
         fig.add_shape(
             type="rect",
             xref="x", yref="y",
-            x0=r["x"], y0=r["y"], x1=r["x"]+r["dx"], y1=r["y"]+r["dy"],
+            x0=r["x"], y0=r["y"],
+            x1=r["x"] + r["dx"], y1=r["y"] + r["dy"],
             line=dict(width=1, color="white"),
             fillcolor=fill_color,
             layer="above"
         )
+
+        # tiny invisible point just to provide hover (no legend)
         fig.add_trace(go.Scatter(
-            x=[None], y=[None],
+            x=[r["x"] + r["dx"]/2],
+            y=[r["y"] + r["dy"]/2],
             mode="markers",
-            marker=dict(size=0.1, color=fill_color),
+            marker=dict(size=0.1, opacity=0, color=fill_color),
             hovertemplate=(
                 f"<b>{name}</b><br>"
                 f"{size_dim}: {dff[size_dim].iloc[i]:,}<br>"
@@ -115,35 +116,33 @@ def update_heatmap(state, year, color_dim):
             showlegend=False
         ))
 
-    # Build a manual legend from your color mapping
-    legend_items = [
-        go.Scatter(
+    # --- manual legend for your discrete bins ---
+    for label in [lbl for lbl in color_order if lbl in discrete_map]:
+        fig.add_trace(go.Scatter(
             x=[None], y=[None],
             mode="markers",
             marker=dict(size=10, color=discrete_map[label]),
-            legendgroup=label,
-            showlegend=True,
-            name=label
-        )
-        for label in color_order if label in discrete_map
-    ]
-    for item in legend_items:
-        fig.add_trace(item)
+            name=label,
+            showlegend=True
+        ))
+
+    # --- critical: fix the axis ranges to match the 0..100 layout ---
+    fig.update_xaxes(range=[0, W], visible=False, fixedrange=True)
+    fig.update_yaxes(range=[H, 0], visible=False, fixedrange=True)  # top-left origin
 
     fig.update_layout(
-        xaxis=dict(visible=False),
-        yaxis=dict(visible=False, scaleanchor="x", scaleratio=1),
         plot_bgcolor="white",
         margin=dict(l=20, r=20, t=60, b=20),
         title=f"{year} — {state if state!='ALL' else 'All States'} (Colored by {color_dim}, Sized by {size_dim})",
         width=900, height=700,
         legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=-0.05,
-            xanchor="center",
-            x=0.5
+            # vertical legend
+            orientation="v",
+            yanchor="top",
+            y=1,
+            xanchor="left",
+            # just outside the plot area
+            x=1.02
         )
     )
-
     return fig
