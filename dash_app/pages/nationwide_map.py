@@ -13,7 +13,6 @@ df = pd.read_csv(
     "../data/final/county_election_data_by_year.csv",
     dtype={"county_fips": str, "code": str}
 )
-#df["county_fips"] = df["county_fips"].astype(str).str.zfill(5)
 df["margin_bin"] = cutils.bin_counties_by_margin(df["votes_pct_two_party_democrat"])
 
 
