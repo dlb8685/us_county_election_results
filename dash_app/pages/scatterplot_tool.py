@@ -71,7 +71,16 @@ layout = html.Div([
         ], style={"width": "19%", "display": "inline-block", "marginTop": "10px"}),
     ], style={"marginBottom": "20px"}),
 
-    dcc.Graph(id="scatterplot")
+    # Generate the graph and center it in the screen.
+    html.Div(
+        dcc.Graph(id="scatterplot"),
+        style={
+            "display": "flex",
+            "justifyContent": "center",
+            "alignItems": "center",  # optional: vertical centering
+            "width": "100%",
+        },
+    )
 ])
 
 # ---- Callback for dynamic filter options ----
@@ -94,8 +103,8 @@ def set_filter_values(filter_col):
         Input("color-dim", "value"),
         Input("size-dim", "value"),
         Input("filter-col", "value"),
-        Input("filter-val", "value")
-    ]
+        Input("filter-val", "value"),
+    ],
 )
 def update_scatter(x_col, y_col, color_col, size_col, filter_col, filter_val):
     dff = df.copy()
@@ -109,7 +118,31 @@ def update_scatter(x_col, y_col, color_col, size_col, filter_col, filter_val):
         color=color_col if color_col else None,
         size=size_col if size_col else None,
         hover_name="county_fips" if "county_fips" in dff.columns else None,
-        title=f"{y_col} vs {x_col}"
+        title=f"{y_col} vs {x_col}",
     )
-    fig.update_layout(margin=dict(l=40, r=40, t=60, b=40))
+
+    # Keep the plot area square *by size*, not by units.
+    # (No scaleanchor/scaleratio — that’s what was blowing up your 0–1 axes.)
+    fig.update_layout(
+        height=700,
+        width=700,  # make it square on screen
+        margin=dict(l=40, r=40, t=60, b=40),
+        plot_bgcolor="#f9f9f9",
+        paper_bgcolor="#ffffff",
+    )
+
+    # Tight bounds without Plotly adding padding
+    fig.update_xaxes(constrain="domain")
+    fig.update_yaxes(constrain="domain")
+
+    # Always show a faint diagonal from lower-left to upper-right *in paper coords*
+    # so it spans the square regardless of axis scales.
+    fig.add_shape(
+        type="line",
+        x0=0, y0=0, x1=1, y1=1,
+        xref="paper", yref="paper",
+        line=dict(color="gray", width=1, dash="dash"),
+        layer="below",
+    )
+
     return fig
