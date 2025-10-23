@@ -17,6 +17,7 @@ layout = html.Div([
     html.H3("County Election Scatterplot"),
 
     html.Div([
+        # X-axis dropdown
         html.Div([
             html.Label("X-axis"),
             dcc.Dropdown(
@@ -25,7 +26,7 @@ layout = html.Div([
                 value=df.columns[0]
             )
         ], style={"width": "19%", "display": "inline-block"}),
-
+        # Y-axis dropdown
         html.Div([
             html.Label("Y-axis"),
             dcc.Dropdown(
@@ -34,7 +35,7 @@ layout = html.Div([
                 value=df.columns[1]
             )
         ], style={"width": "19%", "display": "inline-block"}),
-
+        # Color dropdown
         html.Div([
             html.Label("Color by"),
             dcc.Dropdown(
@@ -44,7 +45,7 @@ layout = html.Div([
                 placeholder="Optional"
             )
         ], style={"width": "19%", "display": "inline-block"}),
-
+        # Bubble size dropdown
         html.Div([
             html.Label("Size by"),
             dcc.Dropdown(
@@ -54,21 +55,17 @@ layout = html.Div([
                 placeholder="Optional"
             )
         ], style={"width": "19%", "display": "inline-block"}),
-
+        # State filter dropdown
         html.Div([
-            html.Label("Filter column"),
+            html.Label("Select state"),
             dcc.Dropdown(
-                id="filter-col",
-                options=[{"label": col, "value": col} for col in df.columns],
-                value=None,
-                placeholder="Optional"
+                id="state-filter",
+                options=[{"label": "All", "value": "All"}] +
+                        [{"label": s, "value": s} for s in sorted(df["state_name"].dropna().unique())],
+                value="All",
+                #style={"width": "30%"}
             )
         ], style={"width": "19%", "display": "inline-block"}),
-
-        html.Div([
-            html.Label("Filter value"),
-            dcc.Dropdown(id="filter-val", placeholder="Select a value")
-        ], style={"width": "19%", "display": "inline-block", "marginTop": "10px"}),
     ], style={"marginBottom": "20px"}),
 
     # Generate the graph and center it in the screen.
@@ -77,22 +74,13 @@ layout = html.Div([
         style={
             "display": "flex",
             "justifyContent": "center",
-            "alignItems": "center",  # optional: vertical centering
+            "alignItems": "center",  # vertical centering
             "width": "100%",
         },
     )
 ])
 
-# ---- Callback for dynamic filter options ----
-@dash.callback(
-    Output("filter-val", "options"),
-    Input("filter-col", "value")
-)
-def set_filter_values(filter_col):
-    if filter_col:
-        unique_vals = sorted(df[filter_col].dropna().unique())
-        return [{"label": str(v), "value": v} for v in unique_vals]
-    return []
+
 
 # ---- Main scatterplot callback ----
 @dash.callback(
@@ -102,14 +90,13 @@ def set_filter_values(filter_col):
         Input("y-axis", "value"),
         Input("color-dim", "value"),
         Input("size-dim", "value"),
-        Input("filter-col", "value"),
-        Input("filter-val", "value"),
+        Input("state-filter", "value"),
     ],
 )
-def update_scatter(x_col, y_col, color_col, size_col, filter_col, filter_val):
+def update_scatter(x_col, y_col, color_col, size_col, state_val):
     dff = df.copy()
-    if filter_col and filter_val:
-        dff = dff[dff[filter_col] == filter_val]
+    if state_val and state_val != "All":
+        dff = dff[dff["state_name"] == state_val]
 
     fig = px.scatter(
         dff,
@@ -122,7 +109,7 @@ def update_scatter(x_col, y_col, color_col, size_col, filter_col, filter_val):
     )
 
     # Keep the plot area square *by size*, not by units.
-    # (No scaleanchor/scaleratio — that’s what was blowing up your 0–1 axes.)
+    # This should create a square in the center of the area, scaled on each axis.
     fig.update_layout(
         height=700,
         width=700,  # make it square on screen
