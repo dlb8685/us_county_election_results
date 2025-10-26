@@ -123,6 +123,11 @@ def update_scatter(x_col, y_col, color_col, size_col, state_filter):
     dff = df.copy()
     if state_filter != "All":
         dff = dff[dff["state_name"] == state_filter]
+    # Remove rows that don't have a value for the specified color_col and size_col
+    if color_col:
+        dff = dff.dropna(subset=[color_col])
+    if size_col:
+        dff = dff.dropna(subset=[size_col])
 
     # Use the mapping config to get the human-name and range for each column.
     display_x = cfg.COLUMN_MAP_OVERALL.get(x_col, {}).get("label", x_col)
@@ -147,7 +152,7 @@ def update_scatter(x_col, y_col, color_col, size_col, state_filter):
     # Keep the plot area square *by size*, not by units.
     # (No scaleanchor/scaleratio — that’s what was blowing up your 0–1 axes.)
     PLOT  = 700          # desired plot area (NOT the whole figure)
-    L, R, T, B = 60, 360, 60, 60   # leave hard space on the right for colorbar
+    L, R, T, B = 180, 360, 60, 60   # leave hard space on the right for colorbar
     fig.update_layout(
         height=PLOT + T + B,
         width=PLOT + L + R,  # make it square on screen
