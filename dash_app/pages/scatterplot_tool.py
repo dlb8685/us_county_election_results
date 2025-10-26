@@ -64,7 +64,7 @@ layout = html.Div([
             dcc.Dropdown(
                 id="color-dim",
                 options=flattened_dropdown_options,
-                value=None,
+                value="median_household_income_2010",
                 placeholder="Optional"
             )
         ], style={"width": "19%", "display": "inline-block", "marginRight": "1%"}),
@@ -74,7 +74,7 @@ layout = html.Div([
             dcc.Dropdown(
                 id="size-dim",
                 options=flattened_dropdown_options,
-                value=None,
+                value="votes_total_2024",
                 placeholder="Optional"
             )
         ], style={"width": "19%", "display": "inline-block", "marginRight": "1%"}),
@@ -123,7 +123,7 @@ def update_scatter(x_col, y_col, color_col, size_col, state_filter):
     dff = df.copy()
     if state_filter != "All":
         dff = dff[dff["state_name"] == state_filter]
-    # Remove rows that don't have a value for the specified color_col and size_col
+    # Remove rows that don't have a value for the specified color_col and size_col.
     if color_col:
         dff = dff.dropna(subset=[color_col])
     if size_col:
@@ -132,6 +132,7 @@ def update_scatter(x_col, y_col, color_col, size_col, state_filter):
     # Use the mapping config to get the human-name and range for each column.
     display_x = cfg.COLUMN_MAP_OVERALL.get(x_col, {}).get("label", x_col)
     display_y = cfg.COLUMN_MAP_OVERALL.get(y_col, {}).get("label", y_col)
+    scatter_labels = {x_col: display_x, y_col: display_y}
     # apply scale if defined.
     # Mainly to make the axes on 0-1 pct dimensions show the full 0-1 range.
     x_min = cfg.COLUMN_MAP_OVERALL.get(x_col, {}).get("min")
@@ -144,15 +145,18 @@ def update_scatter(x_col, y_col, color_col, size_col, state_filter):
         x=x_col,
         y=y_col,
         color=color_col if color_col else None,
+        color_continuous_scale="algae",
         size=size_col if size_col else None,
+        size_max=30,
         hover_name="county_fips" if "county_fips" in dff.columns else None,
-        title=f"{display_x} by {display_y}",
+        #title=f"{display_x} by {display_y}",
+        labels=scatter_labels
     )
 
     # Keep the plot area square *by size*, not by units.
     # (No scaleanchor/scaleratio — that’s what was blowing up your 0–1 axes.)
-    PLOT  = 700          # desired plot area (NOT the whole figure)
-    L, R, T, B = 180, 360, 60, 60   # leave hard space on the right for colorbar
+    PLOT  = 600          # desired plot area (NOT the whole figure)
+    L, R, T, B = 180, 360, 10, 60   # leave hard space on the right for colorbar
     fig.update_layout(
         height=PLOT + T + B,
         width=PLOT + L + R,  # make it square on screen
@@ -190,7 +194,7 @@ def update_scatter(x_col, y_col, color_col, size_col, state_filter):
     if color_col:
         fig.update_layout(
             coloraxis_colorbar=dict(
-                title=color_col,
+                title=cfg.COLUMN_MAP_OVERALL.get(color_col, {}).get("label", color_col),
                 xanchor="left",
                 x=7,        # >1 pushes it outside the plot into the right margin
                 y=0.5,
