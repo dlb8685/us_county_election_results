@@ -2,19 +2,43 @@ import dash
 from dash import html, dcc, Input, Output
 import pandas as pd
 import plotly.express as px
+from collections import defaultdict
+import county_results_config as cfg
 
 # Register page
 dash.register_page(__name__, name="Scatterplot Explorer", path="/scatterplot")
 
-# ---- Load data once ----
+# Load data once
 df = pd.read_csv(
     "../data/final/county_election_data_overall.csv",
     dtype={"county_fips": str}
 )
 
+# Group columns by category (for cleaner drop-down)
+# Also load human-friendly readable names.
+grouped = defaultdict(list)
+for col, meta in cfg.COLUMN_MAP_OVERALL.items():
+    if col in df.columns:
+        grouped[meta.get("group", "Other")].append(
+            {"label": meta.get("label", col), "value": col}
+        )
+
+# We need a flat structure where the group is incorporated directly into each option.
+# FIXME: Make this play nice with dcc.Dropdown when having Group (Demographics, Economics) included.
+dropdown_options = [
+    {"label": group, "options": sorted(opts, key=lambda x: x["label"])}
+    for group, opts in grouped.items()
+]
+flattened_dropdown_options = [
+    {"label": opt["label"], "value": opt["value"]}
+    for group_block in dropdown_options
+    for group, opts in [(group_block["label"], group_block["options"])]
+    for opt in opts
+]
+
 # ---- Layout ----
 layout = html.Div([
-    html.H3("County Election Scatterplot"),
+    html.H3("County Election Scatterplot", style={"text-align": "center"}),
 
     html.Div([
         # X-axis dropdown
@@ -22,51 +46,53 @@ layout = html.Div([
             html.Label("X-axis"),
             dcc.Dropdown(
                 id="x-axis",
-                options=[{"label": col, "value": col} for col in df.columns],
-                value=df.columns[0]
+                options=flattened_dropdown_options,
+                value="votes_pct_democrat_2020"
             )
-        ], style={"width": "19%", "display": "inline-block"}),
-        # Y-axis dropdown
+        ], style={"width": "18%", "display": "inline-block", "margin-left": "1%", "margin-right": "1%"}),
+
         html.Div([
             html.Label("Y-axis"),
             dcc.Dropdown(
                 id="y-axis",
-                options=[{"label": col, "value": col} for col in df.columns],
-                value=df.columns[1]
+                options=flattened_dropdown_options,
+                value="votes_pct_democrat_2024"
             )
-        ], style={"width": "19%", "display": "inline-block"}),
-        # Color dropdown
+        ], style={"width": "18%", "display": "inline-block", "margin-right": "1%"}),
+
         html.Div([
             html.Label("Color by"),
             dcc.Dropdown(
                 id="color-dim",
-                options=[{"label": col, "value": col} for col in df.columns],
-                value=None,
+                options=flattened_dropdown_options,
+                value="median_household_income_2010",
                 placeholder="Optional"
             )
-        ], style={"width": "19%", "display": "inline-block"}),
-        # Bubble size dropdown
+        ], style={"width": "18%", "display": "inline-block", "margin-right": "1%"}),
+
         html.Div([
             html.Label("Size by"),
             dcc.Dropdown(
                 id="size-dim",
-                options=[{"label": col, "value": col} for col in df.columns],
-                value=None,
+                options=flattened_dropdown_options,
+                value="votes_total_2024",
                 placeholder="Optional"
             )
-        ], style={"width": "19%", "display": "inline-block"}),
+        ], style={"width": "18%", "display": "inline-block", "margin-right": "1%"}),
+
         # State filter dropdown
+        # For now, only filter on State.
         html.Div([
             html.Label("Select state"),
             dcc.Dropdown(
                 id="state-filter",
                 options=[{"label": "All", "value": "All"}] +
                         [{"label": s, "value": s} for s in sorted(df["state_name"].dropna().unique())],
-                value="All",
-                #style={"width": "30%"}
+                value="All"
             )
-        ], style={"width": "19%", "display": "inline-block"}),
-    ], style={"marginBottom": "20px"}),
+        ], style={"width": "18%", "display": "inline-block"})
+
+    ]),
 
     # Generate the graph and center it in the screen.
     html.Div(
@@ -81,7 +107,6 @@ layout = html.Div([
 ])
 
 
-
 # ---- Main scatterplot callback ----
 @dash.callback(
     Output("scatterplot", "figure"),
@@ -93,34 +118,57 @@ layout = html.Div([
         Input("state-filter", "value"),
     ],
 )
-def update_scatter(x_col, y_col, color_col, size_col, state_val):
+def update_scatter(x_col, y_col, color_col, size_col, state_filter):
+    # Create a hard copy of our main data frame which can be modified without touching the original.
+    # i.e. filtering out certain states, etc.
     dff = df.copy()
-    if state_val and state_val != "All":
-        dff = dff[dff["state_name"] == state_val]
+    if state_filter != "All":
+        dff = dff[dff["state_name"] == state_filter]
+    # Remove rows that don't have a value for the specified color_col and size_col.
+    if color_col:
+        dff = dff.dropna(subset=[color_col])
+    if size_col:
+        dff = dff.dropna(subset=[size_col])
+
+    # Use the mapping config to get the human-name and range for each column.
+    display_x = cfg.COLUMN_MAP_OVERALL.get(x_col, {}).get("label", x_col)
+    display_y = cfg.COLUMN_MAP_OVERALL.get(y_col, {}).get("label", y_col)
+    scatter_labels = {x_col: display_x, y_col: display_y}
+    # apply scale if defined.
+    # Mainly to make the axes on 0-1 pct dimensions show the full 0-1 range.
+    x_min = cfg.COLUMN_MAP_OVERALL.get(x_col, {}).get("min")
+    x_max = cfg.COLUMN_MAP_OVERALL.get(x_col, {}).get("max")
+    y_min = cfg.COLUMN_MAP_OVERALL.get(y_col, {}).get("min")
+    y_max = cfg.COLUMN_MAP_OVERALL.get(y_col, {}).get("max")
 
     fig = px.scatter(
         dff,
         x=x_col,
         y=y_col,
         color=color_col if color_col else None,
+        color_continuous_scale="algae",
         size=size_col if size_col else None,
+        size_max=30,
         hover_name="county_fips" if "county_fips" in dff.columns else None,
-        title=f"{y_col} vs {x_col}",
+        #title=f"{display_x} by {display_y}",
+        labels=scatter_labels
     )
 
     # Keep the plot area square *by size*, not by units.
-    # This should create a square in the center of the area, scaled on each axis.
+    # (No scaleanchor/scaleratio — that’s what was blowing up your 0–1 axes.)
+    PLOT  = 600          # desired plot area (NOT the whole figure)
+    L, R, T, B = 180, 360, 10, 60   # leave hard space on the right for colorbar
     fig.update_layout(
-        height=700,
-        width=700,  # make it square on screen
-        margin=dict(l=40, r=40, t=60, b=40),
+        height=PLOT + T + B,
+        width=PLOT + L + R,  # make it square on screen
+        margin=dict(l=L, r=R, t=T, b=B),
         plot_bgcolor="#f9f9f9",
         paper_bgcolor="#ffffff",
     )
 
     # Tight bounds without Plotly adding padding
-    fig.update_xaxes(constrain="domain")
-    fig.update_yaxes(constrain="domain")
+    fig.update_xaxes(range=[x_min, x_max])
+    fig.update_yaxes(range=[y_min, y_max])
 
     # Always show a faint diagonal from lower-left to upper-right *in paper coords*
     # so it spans the square regardless of axis scales.
@@ -131,5 +179,30 @@ def update_scatter(x_col, y_col, color_col, size_col, state_val):
         line=dict(color="gray", width=1, dash="dash"),
         layer="below",
     )
+    
+    # Update the layout to position the legend outside
+    # --- lock plot area to 750x750 and park colorbar in the right margin ---
+    #PLOT  = 700          # desired plot area (NOT the whole figure)
+    #L, R, T, B = 60, 300, 60, 60   # leave hard space on the right for colorbar
+    #fig.update_layout(
+    #    width=PLOT + L + R,              # total figure width
+    #    height=PLOT + T + B,             # total figure height
+    #    margin=dict(l=L, r=R, t=T, b=B), # FIXED margins
+    #)
+
+    # show/hide the colorbar and push it into the reserved right margin
+    fig.update_layout(coloraxis_showscale=bool(color_col))
+    if color_col:
+        fig.update_layout(
+            coloraxis_colorbar=dict(
+                title=cfg.COLUMN_MAP_OVERALL.get(color_col, {}).get("label", color_col),
+                xanchor="left",
+                x=7,        # >1 pushes it outside the plot into the right margin
+                y=0.5,
+                len=0.85,
+                thickness=16,
+                outlinewidth=0,
+            )
+        )
 
     return fig
