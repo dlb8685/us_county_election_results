@@ -41,6 +41,7 @@ layout = html.Div([
     html.H3("County Election Scatterplot", style={"text-align": "center"}),
 
     html.Div([
+        # X-axis dropdown
         html.Div([
             html.Label("X-axis"),
             dcc.Dropdown(
@@ -99,7 +100,7 @@ layout = html.Div([
         style={
             "display": "flex",
             "justifyContent": "center",
-            "alignItems": "center",  # optional: vertical centering
+            "alignItems": "center",  # vertical centering
             "width": "100%",
         },
     )
