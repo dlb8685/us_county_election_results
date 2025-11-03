@@ -22,7 +22,6 @@ for col, meta in cfg.COLUMN_MAP_OVERALL.items():
         grouped[meta.get("group", "Other")].append(
             {"label": meta.get("label", col), "value": col}
         )
-
 # We need a flat structure where the group is incorporated directly into each option.
 # FIXME: Make this play nice with dcc.Dropdown when having Group (Demographics, Economics) included.
 dropdown_options = [
@@ -34,6 +33,11 @@ flattened_dropdown_options = [
     for group_block in dropdown_options
     for group, opts in [(group_block["label"], group_block["options"])]
     for opt in opts
+]
+# Only allow coloring by certain 
+# Only allow dot sizing by vote total, it doesn't make a lot of sense for most other dimensions and adds clutter.
+size_dropdown_options = [
+    f for f in flattened_dropdown_options if f["value"].startswith("votes_total")
 ]
 
 # ---- Layout ----
@@ -74,7 +78,7 @@ layout = html.Div([
             html.Label("Size by"),
             dcc.Dropdown(
                 id="size-dim",
-                options=flattened_dropdown_options,
+                options=size_dropdown_options,
                 value="votes_total_2024",
                 placeholder="Optional"
             )

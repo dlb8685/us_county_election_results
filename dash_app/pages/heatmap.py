@@ -15,6 +15,22 @@ df = pd.read_csv(
     dtype={"county_fips": str, "code": str}
 )
 df["margin_bin"] = cutils.bin_counties_by_margin(df["votes_pct_two_party_democrat"])
+df["swing_bin"] = cutils.bin_counties_by_swing(df["votes_pct_swing_from_prev_election"])
+df["winning_margin_in_votes_bin"] = cutils.bin_counties_by_margin_in_votes(
+    df["votes_democrat"] - df["votes_republican"]
+)
+
+# Extract options for color dropdown
+available_years = sorted(df["year"].unique())
+available_states = ["All"] + sorted(df["state_name"].unique())
+# Only give 3 options for coloring the heatmap.
+# Heatmap does not handle continuous spectrums as well for whatever reason.
+# Could probably debug, but for a v1 let's use these 3 which are the most important.
+available_colors = [
+    {"label": "Margin of Victory (%)", "value": "margin_bin"},
+    {"label": "Swing from Prior Election (%)", "value": "swing_bin"},
+    {"label": "Margin of Victory (in Votes)", "value": "winning_margin_in_votes_bin"}
+]
 
 # ---- Defaults ----
 default_color = "margin_bin"
@@ -48,7 +64,7 @@ layout = html.Div([
             html.Label("Color by"),
             dcc.Dropdown(
                 id="color-dim",
-                options=[{"label": c, "value": c} for c in df.columns],
+                options=[{"label": c["label"], "value": c["value"]} for c in available_colors],
                 value=default_color,
                 clearable=False
             )
@@ -65,13 +81,13 @@ layout = html.Div([
      Input("year-dropdown", "value"),
      Input("color-dim", "value")]
 )
-def update_heatmap(state, year, color_dim):
+def update_heatmap(state, year, selected_color_by):
     dff = df[df["year"] == year].copy()
     if state != "ALL":
         dff = dff[dff["state_name"] == state]
 
     size_dim = default_size
-    dff = dff.dropna(subset=[color_dim, size_dim])
+    dff = dff.dropna(subset=[selected_color_by, size_dim])
     dff = dff.sort_values(size_dim, ascending=False).head(200)
 
     # --- squarify expects sizes that sum to width*height ---
@@ -80,9 +96,21 @@ def update_heatmap(state, year, color_dim):
     normed = squarify.normalize_sizes(sizes, W, H)
     rects = squarify.squarify(normed, 0, 0, W, H)  # list of dicts with x,y,dx,dy
 
-    color_values = dff[color_dim].astype(str)
-    discrete_map = cfg.MARGIN_RED_BLUE_COLOR_SCALE
-    color_order = cfg.MARGIN_LABELS
+    color_values = dff[selected_color_by].astype(str)
+    
+    # Based on the variable entered, create a color scheme
+    if selected_color_by == "margin_bin":
+        discrete_map = cfg.MARGIN_RED_BLUE_COLOR_SCALE
+        color_order = cfg.MARGIN_LABELS
+        available_color_label_text = "Margin of Victory (%)"
+    elif selected_color_by == "swing_bin":
+        discrete_map = cfg.SWING_RED_BLUE_COLOR_SCALE
+        color_order = cfg.SWING_LABELS
+        available_color_label_text = "Swing from Prior Election (%)"
+    elif selected_color_by == "winning_margin_in_votes_bin":
+        discrete_map = cfg.WINNING_MARGIN_VOTES_RED_BLUE_COLOR_SCALE
+        color_order = cfg.WINNING_MARGIN_VOTES_LABELS
+        available_color_label_text = "Margin of Victory (in Votes)"
 
     fig = go.Figure()
 
@@ -111,7 +139,7 @@ def update_heatmap(state, year, color_dim):
             hovertemplate=(
                 f"<b>{name}</b><br>"
                 f"{size_dim}: {dff[size_dim].iloc[i]:,}<br>"
-                f"{color_dim}: {cat}<extra></extra>"
+                f"{selected_color_by}: {cat}<extra></extra>"
             ),
             showlegend=False
         ))
@@ -133,7 +161,7 @@ def update_heatmap(state, year, color_dim):
     fig.update_layout(
         plot_bgcolor="white",
         margin=dict(l=20, r=20, t=60, b=20),
-        title=f"{year} — {state if state!='ALL' else 'All States'} (Colored by {color_dim}, Sized by {size_dim})",
+        title=f"{year} — {state if state!='ALL' else 'All States'} (Colored by {selected_color_by}, Sized by {size_dim})",
         width=900, height=700,
         legend=dict(
             # vertical legend
