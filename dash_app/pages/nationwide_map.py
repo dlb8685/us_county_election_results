@@ -14,35 +14,58 @@ df = pd.read_csv(
     dtype={"county_fips": str, "code": str}
 )
 df["margin_bin"] = cutils.bin_counties_by_margin(df["votes_pct_two_party_democrat"])
-
+df["swing_bin"] = cutils.bin_counties_by_swing(df["votes_pct_swing_from_prev_election"])
+df["winning_margin_in_votes_bin"] = cutils.bin_counties_by_margin_in_votes(
+    df["votes_democrat"] - df["votes_republican"]
+)
 
 # Extract options for dropdowns
 available_years = sorted(df["year"].unique())
 available_states = ["All"] + sorted(df["state_name"].unique())
+available_colors = [
+    {"label": "Margin of Victory (%)", "value": "margin_bin"},
+    {"label": "Swing from Prior Election (%)", "value": "swing_bin"},
+    {"label": "Margin of Victory (in Votes)", "value": "winning_margin_in_votes_bin"}
+] + cfg.COLUMN_COUNTY_MAP_BY_YEAR
+
 
 # ---- Layout ----
 layout = html.Div([
-    html.H2("U.S. Presidential Election Results by County"),
-    html.P("Counties shaded by Democratic two-party vote share."),
+    html.H3("U.S. Presidential Election Results by County", style={"text-align": "center"}),
     
     html.Div([
-        html.Label("Select Year:"),
-        dcc.Dropdown(
-            id="year-dropdown",
-            options=[{"label": str(y), "value": y} for y in available_years],
-            value=2024,
-            clearable=False,
-            style={"width": "200px"}
-        ),
-        html.Label("Select State:"),
-        dcc.Dropdown(
-            id="state-dropdown",
-            options=[{"label": s, "value": s} for s in available_states],
-            value="All",
-            clearable=False,
-            style={"width": "250px"}
-        ),
-    ], style={"display": "flex", "gap": "20px", "marginBottom": "20px"}),
+        # Year dropdown
+        html.Div([
+            html.Label("Select Year:"),
+            dcc.Dropdown(
+                id="year-dropdown",
+                options=[{"label": str(y), "value": y} for y in available_years],
+                value=2024,
+                clearable=False
+            )
+        ], style={"width": "30%", "display": "inline-block", "margin-left": "1%", "margin-right": "1%"}),
+        # State dropdown
+        html.Div([
+            html.Label("Select State:"),
+            dcc.Dropdown(
+                id="state-dropdown",
+                options=[{"label": s, "value": s} for s in available_states],
+                value="All",
+                clearable=False,
+            )
+        ], style={"width": "30%", "display": "inline-block", "margin-right": "1%"}),
+        # Color dropdown
+        html.Div([
+            html.Label("Color By:"),
+            dcc.Dropdown(
+                id="color-by-dropdown",
+                options=[{"label": c["label"], "value": c["value"]} for c in available_colors],
+                value="margin_bin",
+                clearable=False
+            )
+        ], style={"width": "30%", "display": "inline-block", "margin-right": "1%"}),
+    
+    ], style={"display": "flex", "flexWrap": "wrap", "gap": "20px", "marginBottom": "20px"}),
 
     dcc.Graph(id="county-map", style={"height": "85vh"})
 ])
@@ -52,9 +75,10 @@ layout = html.Div([
 @dash.callback(
     Output("county-map", "figure"),
     Input("year-dropdown", "value"),
-    Input("state-dropdown", "value")
+    Input("state-dropdown", "value"),
+    Input("color-by-dropdown", "value")
 )
-def update_map(selected_year, selected_state):
+def update_map(selected_year, selected_state, selected_color_by):
     dff = df[df["year"] == selected_year].copy()
     
     # Filter for state if selected
@@ -64,13 +88,43 @@ def update_map(selected_year, selected_state):
     else:
         scope = "usa"
 
+    # Custom Color By Fields (which use a different palette than the default greenscale)
+    if selected_color_by == "margin_bin":
+        color_discrete_map=cfg.MARGIN_RED_BLUE_COLOR_SCALE
+        category_orders={"margin_bin": cfg.MARGIN_LABELS}  # keep order consistent in legend        
+        color_continuous_scale = None
+        color_range = None
+        available_color_label_text = "Margin of Victory (%)"
+    elif selected_color_by == "swing_bin":
+        color_discrete_map=cfg.SWING_RED_BLUE_COLOR_SCALE
+        category_orders={"swing_bin": cfg.SWING_LABELS}  # keep order consistent in legend
+        color_continuous_scale = None
+        color_range = None
+        available_color_label_text = "Swing from Prior Election (%)"
+    elif selected_color_by == "winning_margin_in_votes_bin":
+        color_discrete_map=cfg.WINNING_MARGIN_VOTES_RED_BLUE_COLOR_SCALE
+        category_orders={"winning_margin_in_votes_bin": cfg.WINNING_MARGIN_VOTES_LABELS}  # keep order consistent in legend
+        color_continuous_scale = None
+        color_range = None
+        available_color_label_text = "Margin of Victory (in Votes)"
+    else:
+        color_discrete_map = None
+        category_orders = None
+        color_continuous_scale="algae"
+        color_range = cfg.COLOR_RANGE_MAP_BY_YEAR.get(selected_color_by, cfg.COLOR_RANGE_MAP_BY_YEAR["default"])
+        available_color_labels = {c["value"]: c["label"] for c in available_colors}
+        available_color_label_text = available_color_labels.get(selected_color_by, selected_color_by)
+    labels={selected_color_by: available_color_label_text}
+
     fig = px.choropleth(
         dff,
         geojson="https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json",
         locations="county_fips",
-        color="margin_bin",  # categorical variable
-        color_discrete_map=cfg.CUSTOM_RED_BLUE_COLOR_SCALE,
-        category_orders={"margin_bin": cfg.WINNING_MARGIN_LABELS},  # keep order consistent in legend
+        color=selected_color_by,
+        color_discrete_map=color_discrete_map,
+        category_orders=category_orders,
+        color_continuous_scale=color_continuous_scale,
+        range_color=color_range,
         scope=scope,
         hover_name="county_name",
         hover_data={
@@ -83,7 +137,7 @@ def update_map(selected_year, selected_state):
             "votes_other": True,
             "votes_pct_two_party_democrat": ":.1%"
         },
-        labels={"votes_pct_two_party_democrat": "Democratic % (two-party share)"}
+        labels=labels
     )
 
     # If zooming to a specific state, tighten the view

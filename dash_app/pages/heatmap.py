@@ -21,7 +21,7 @@ default_color = "margin_bin"
 default_size = "votes_total"
 
 layout = html.Div([
-    html.H3("County Heatmap (Categorical Discrete Colors)"),
+    html.H3("County Heatmap (Categorical Discrete Colors)", style={"text-align": "center"}),
 
     html.Div([
         html.Div([
@@ -32,7 +32,7 @@ layout = html.Div([
                 value="Alabama",
                 clearable=False
             )
-        ], style={"width": "30%", "display": "inline-block"}),
+        ], style={"width": "30%", "display": "inline-block", "margin-left": "1%", "margin-right": "1%"}),
 
         html.Div([
             html.Label("Year"),
@@ -42,7 +42,7 @@ layout = html.Div([
                 value=max(df["year"]),
                 clearable=False
             )
-        ], style={"width": "30%", "display": "inline-block"}),
+        ], style={"width": "30%", "display": "inline-block", "margin-right": "1%"}),
 
         html.Div([
             html.Label("Color by"),
@@ -52,7 +52,7 @@ layout = html.Div([
                 value=default_color,
                 clearable=False
             )
-        ], style={"width": "30%", "display": "inline-block"}),
+        ], style={"width": "30%", "display": "inline-block", "margin-right": "1%"}),
     ], style={"marginBottom": "20px"}),
 
     dcc.Graph(id="heatmap-squarify")
@@ -81,8 +81,8 @@ def update_heatmap(state, year, color_dim):
     rects = squarify.squarify(normed, 0, 0, W, H)  # list of dicts with x,y,dx,dy
 
     color_values = dff[color_dim].astype(str)
-    discrete_map = cfg.CUSTOM_RED_BLUE_COLOR_SCALE
-    color_order = cfg.WINNING_MARGIN_LABELS
+    discrete_map = cfg.MARGIN_RED_BLUE_COLOR_SCALE
+    color_order = cfg.MARGIN_LABELS
 
     fig = go.Figure()
 

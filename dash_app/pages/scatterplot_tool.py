@@ -38,7 +38,7 @@ flattened_dropdown_options = [
 
 # ---- Layout ----
 layout = html.Div([
-    html.H3("County Election Scatterplot"),
+    html.H3("County Election Scatterplot", style={"text-align": "center"}),
 
     html.Div([
         html.Div([
@@ -48,7 +48,7 @@ layout = html.Div([
                 options=flattened_dropdown_options,
                 value="votes_pct_democrat_2020"
             )
-        ], style={"width": "19%", "display": "inline-block", "marginRight": "1%"}),
+        ], style={"width": "18%", "display": "inline-block", "margin-left": "1%", "margin-right": "1%"}),
 
         html.Div([
             html.Label("Y-axis"),
@@ -57,7 +57,7 @@ layout = html.Div([
                 options=flattened_dropdown_options,
                 value="votes_pct_democrat_2024"
             )
-        ], style={"width": "19%", "display": "inline-block", "marginRight": "1%"}),
+        ], style={"width": "18%", "display": "inline-block", "margin-right": "1%"}),
 
         html.Div([
             html.Label("Color by"),
@@ -67,7 +67,7 @@ layout = html.Div([
                 value="median_household_income_2010",
                 placeholder="Optional"
             )
-        ], style={"width": "19%", "display": "inline-block", "marginRight": "1%"}),
+        ], style={"width": "18%", "display": "inline-block", "margin-right": "1%"}),
 
         html.Div([
             html.Label("Size by"),
@@ -77,7 +77,7 @@ layout = html.Div([
                 value="votes_total_2024",
                 placeholder="Optional"
             )
-        ], style={"width": "19%", "display": "inline-block", "marginRight": "1%"}),
+        ], style={"width": "18%", "display": "inline-block", "margin-right": "1%"}),
 
         # State filter dropdown
         # For now, only filter on State.
@@ -89,7 +89,7 @@ layout = html.Div([
                         [{"label": s, "value": s} for s in sorted(df["state_name"].dropna().unique())],
                 value="All"
             )
-        ], style={"width": "19%", "display": "inline-block"})
+        ], style={"width": "18%", "display": "inline-block"})
 
     ]),
 

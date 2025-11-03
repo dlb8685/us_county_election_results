@@ -15,16 +15,16 @@ CUSTOM_RED_BLUE_COLOR_SCALE=[
 
 # These two lists should line up in terms of number of elements.
 # They control the shading of counties based on the margin of victory.
-DEMOCRATIC_SHARE_BINS = [
+MARGIN_BINS = [
     0, 0.20, 0.30, 0.40, 0.45, 0.475, 0.495,
     0.500,
     0.505, 0.525, 0.55, 0.60, 0.70, 0.85, 1.00
 ]
-WINNING_MARGIN_LABELS = [
+MARGIN_LABELS = [
     "Rep > 60%", "Rep 40–60%", "Rep 20–40%", "Rep 10-20%", "Rep 5-10%", "Rep < 5%", "Rep < 1%",
     "Dem < 1%", "Dem < 5%", "Dem 5–10%", "Dem 10–20%", "Dem 20-40%", "Dem 40-60%", "Dem > 60%"
 ]
-CUSTOM_RED_BLUE_COLOR_SCALE = {
+MARGIN_RED_BLUE_COLOR_SCALE = {
     "Rep > 60%": "rgb(128,0,0)",
     "Rep 40–60%": "rgb(192,64,64)",
     "Rep 20–40%": "rgb(192,96,96)",
@@ -39,6 +39,58 @@ CUSTOM_RED_BLUE_COLOR_SCALE = {
     "Dem 20-40%": "rgb(96,96,192)",
     "Dem 40-60%": "rgb(64,64,192)",
     "Dem > 60%": "rgb(0,0,128)"
+}
+# Control the shading of counties based on the swing from the prior election.
+SWING_BINS = [
+    -1, -0.20, -0.15, -0.10, -0.07, -0.04, -0.02,
+    0,
+    0.02, 0.04, 0.07, 0.10, 0.15, 0.20, 1
+]
+SWING_LABELS = [
+    "Rep > 20%", "Rep 15–20%", "Rep 10–15%", "Rep 7-10%", "Rep 4-7%", "Rep 2-4%", "Rep < 2%",
+    "Dem < 2%", "Dem 2-4%", "Dem 4–7%", "Dem 7–10%", "Dem 10-15%", "Dem 15-20%", "Dem > 20%"
+]
+SWING_RED_BLUE_COLOR_SCALE = {
+    "Rep > 20%": "rgb(128,0,0)",
+    "Rep 15–20%": "rgb(192,64,64)",
+    "Rep 10–15%": "rgb(192,96,96)",
+    "Rep 7-10%": "rgb(255,96,96)",
+    "Rep 4-7%": "rgb(255,128,128)",
+    "Rep 2-4%": "rgb(255,192,192)",
+    "Rep < 2%": "rgb(255,226,226)",
+    "Dem < 2%": "rgb(226,226,255)",
+    "Dem 2-4%": "rgb(192,192,255)",
+    "Dem 4–7%": "rgb(128,128,255)",
+    "Dem 7–10%": "rgb(96,96,255)",
+    "Dem 10-15%": "rgb(96,96,192)",
+    "Dem 15-20%": "rgb(64,64,192)",
+    "Dem > 20%": "rgb(0,0,128)"
+}
+# Control shading based on winning margin in votes.
+WINNING_MARGIN_VOTES_BINS = [
+    -999999999, -250000, -100000, -50000, -25000, -10000, -1000,
+    0,
+    1000, 10000, 25000, 50000, 100000, 250000, 999999999
+]
+WINNING_MARGIN_VOTES_LABELS = [
+    "Rep > 250k", "Rep 100-250k", "Rep 50-100k", "Rep 25-50k", "Rep 10-25k", "Rep 1-10k", "Rep < 1k",
+    "Dem < 1k", "Dem 1-10k", "Dem 10-25k", "Dem 25-50k", "Dem 50-100k", "Dem 100-250k", "Dem > 250k"
+] 
+WINNING_MARGIN_VOTES_RED_BLUE_COLOR_SCALE = {
+    "Rep > 250k": "rgb(128,0,0)",
+    "Rep 100-250k": "rgb(192,64,64)",
+    "Rep 50-100k": "rgb(192,96,96)",
+    "Rep 25-50k": "rgb(255,96,96)",
+    "Rep 10-25k": "rgb(255,128,128)",
+    "Rep 1-10k": "rgb(255,192,192)",
+    "Rep < 1k": "rgb(255,226,226)",
+    "Dem < 1k": "rgb(226,226,255)",
+    "Dem 1-10k": "rgb(192,192,255)",
+    "Dem 10-25k": "rgb(128,128,255)",
+    "Dem 25-50k": "rgb(96,96,255)",
+    "Dem 50-100k": "rgb(96,96,192)",
+    "Dem 100-250k": "rgb(64,64,192)",
+    "Dem > 250k": "rgb(0,0,128)"
 }
 
 
@@ -362,4 +414,35 @@ COLUMN_MAP_OVERALL = {
     "median_household_income_2010": {"label": "Income (Median Household, 2010)", "min": 20000, "max": 120000, "group": "Economics"},
     "poverty_pct_overall_2010": {"label": "Poverty Rate (Overall, 2010)", "min": 0, "max": 1, "group": "Economics"},
     "poverty_pct_under_18_2010": {"label": "Poverty Rate (Under 18, 2010)", "min": 0, "max": 1, "group": "Economics"},
+}
+
+COLUMN_COUNTY_MAP_BY_YEAR = [
+    {"label": "Votes (Total)", "value": "votes_total"},
+    {"label": "% of Population (White)", "value": "population_pct_white"},
+    {"label": "% of Population (Hispanic)", "value": "population_pct_hispanic"},
+    {"label": "% of Population (Black)", "value": "population_pct_black"},
+    {"label": "% of Population (Am. Ind)", "value": "population_pct_am_ind"},
+    {"label": "% of Population (Asian)", "value": "population_pct_asian"},
+    {"label": "% of Population (Pacific)", "value": "population_pct_pacific"},
+    {"label": "% of Population (2+ Races)", "value": "population_pct_two_races_nh"},
+    {"label": "Bachelor's Degree (% of Adults)", "value": "bachelor_degree_pct_of_adults"},
+    {"label": "Income (Median Household, 2010)", "value": "median_household_income_2010"},
+    {"label": "Poverty Rate (Overall, 2010)", "value": "poverty_pct_overall_2010"},
+    {"label": "Poverty Rate (Under 18, 2010)", "value": "poverty_pct_under_18_2010"}
+]
+COLOR_RANGE_MAP_BY_YEAR = {
+    "votes_total": (0, 250000),  # cap outliers (e.g. LA County, Cook County), which make every other country pale green
+    "population_pct_white": (0, 1),
+    "population_pct_hispanic": (0, 1),
+    "population_pct_black": (0, 1),
+    "population_pct_am_ind": (0, 0.5),  # lower cap on less prevalent groups
+    "population_pct_asian": (0, 0.5),
+    "population_pct_pacific": (0, 0.5),
+    "population_pct_two_races_nh": (0, 0.5),
+    "bachelor_degree_pct_of_adults": (0, 1),
+    "median_household_income_2010": (20000, 100000),  # cap outliers
+    "poverty_pct_overall_2010": (0, 0.5),
+    "poverty_pct_under_18_2010": (0, 0.5),
+    # default fallback
+    "default": (0, 1)
 }
