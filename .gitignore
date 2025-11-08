@@ -1,6 +1,6 @@
 # Raw_Data and project files
   # Eventually we'll allow data/final but only after those files are mostly finalized, to avoid git bloat.
-/data/*
+/data/raw_data/*
 us_county_election_results.db
 us_county_election_results_venv
 dash_app_venv
