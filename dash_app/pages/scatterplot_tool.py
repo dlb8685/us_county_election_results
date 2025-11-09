@@ -79,7 +79,7 @@ layout = html.Div([
             dcc.Dropdown(
                 id="size-dim",
                 options=size_dropdown_options,
-                value="votes_total_2024",
+                value="votes_total_2020",
                 placeholder="Optional"
             )
         ], style={"width": "14%", "display": "inline-block", "margin-right": "1%"}),
