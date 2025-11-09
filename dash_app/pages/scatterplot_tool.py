@@ -51,18 +51,18 @@ layout = html.Div([
             dcc.Dropdown(
                 id="x-axis",
                 options=flattened_dropdown_options,
-                value="votes_pct_democrat_2020"
+                value="votes_pct_democrat_2016"
             )
-        ], style={"width": "18%", "display": "inline-block", "margin-left": "1%", "margin-right": "1%"}),
+        ], style={"width": "21%", "display": "inline-block", "margin-left": "1%", "margin-right": "1%"}),
 
         html.Div([
             html.Label("Y-axis"),
             dcc.Dropdown(
                 id="y-axis",
                 options=flattened_dropdown_options,
-                value="votes_pct_democrat_2024"
+                value="votes_pct_democrat_2020"
             )
-        ], style={"width": "18%", "display": "inline-block", "margin-right": "1%"}),
+        ], style={"width": "21%", "display": "inline-block", "margin-right": "1%"}),
 
         html.Div([
             html.Label("Color by"),
@@ -72,7 +72,7 @@ layout = html.Div([
                 value="median_household_income_2010",
                 placeholder="Optional"
             )
-        ], style={"width": "18%", "display": "inline-block", "margin-right": "1%"}),
+        ], style={"width": "20%", "display": "inline-block", "margin-right": "1%"}),
 
         html.Div([
             html.Label("Size by"),
@@ -82,7 +82,7 @@ layout = html.Div([
                 value="votes_total_2024",
                 placeholder="Optional"
             )
-        ], style={"width": "18%", "display": "inline-block", "margin-right": "1%"}),
+        ], style={"width": "14%", "display": "inline-block", "margin-right": "1%"}),
 
         # State filter dropdown
         # For now, only filter on State.
@@ -94,7 +94,7 @@ layout = html.Div([
                         [{"label": s, "value": s} for s in sorted(df["state_name"].dropna().unique())],
                 value="All"
             )
-        ], style={"width": "18%", "display": "inline-block"})
+        ], style={"width": "13%", "display": "inline-block"})
 
     ]),
 
@@ -129,10 +129,14 @@ def update_scatter(x_col, y_col, color_col, size_col, state_filter):
     if state_filter != "All":
         dff = dff[dff["state_name"] == state_filter]
     # Remove rows that don't have a value for the specified color_col and size_col.
+    display_color = None
     if color_col:
         dff = dff.dropna(subset=[color_col])
+        display_color = cfg.COLUMN_MAP_OVERALL.get(color_col, {}).get("label", color_col)
+    display_size = None
     if size_col:
         dff = dff.dropna(subset=[size_col])
+        display_size = cfg.COLUMN_MAP_OVERALL.get(size_col, {}).get("label", size_col)
 
     # Use the mapping config to get the human-name and range for each column.
     display_x = cfg.COLUMN_MAP_OVERALL.get(x_col, {}).get("label", x_col)
@@ -153,8 +157,10 @@ def update_scatter(x_col, y_col, color_col, size_col, state_filter):
         color_continuous_scale="algae",
         size=size_col if size_col else None,
         size_max=30,
-        hover_name="county_fips" if "county_fips" in dff.columns else None,
-        #title=f"{display_x} by {display_y}",
+        custom_data=[
+            "county_name", "state_abbr", "county_seat",
+            x_col, y_col, color_col, size_col
+        ],
         labels=scatter_labels
     )
 
@@ -176,6 +182,7 @@ def update_scatter(x_col, y_col, color_col, size_col, state_filter):
 
     # Always show a faint diagonal from lower-left to upper-right *in paper coords*
     # so it spans the square regardless of axis scales.
+    # This may not be perfect for every situation, but doing this dynamically is not in scope.
     fig.add_shape(
         type="line",
         x0=0, y0=0, x1=1, y1=1,
@@ -183,16 +190,25 @@ def update_scatter(x_col, y_col, color_col, size_col, state_filter):
         line=dict(color="gray", width=1, dash="dash"),
         layer="below",
     )
-    
-    # Update the layout to position the legend outside
-    # --- lock plot area to 750x750 and park colorbar in the right margin ---
-    #PLOT  = 700          # desired plot area (NOT the whole figure)
-    #L, R, T, B = 60, 300, 60, 60   # leave hard space on the right for colorbar
-    #fig.update_layout(
-    #    width=PLOT + L + R,              # total figure width
-    #    height=PLOT + T + B,             # total figure height
-    #    margin=dict(l=L, r=R, t=T, b=B), # FIXED margins
-    #)
+
+    # Control the pop-up window over each dot when hovering.
+    # County Name, State, and Seat plus the data points in the chart.
+    parts = [
+        "<b>%{customdata[0]}, %{customdata[1]}</b><br>",
+        "<b>County Seat:</b> %{customdata[2]}<br><br>",
+        f"<b>{display_x}:</b> %{{customdata[3]:.3f}}<br>",
+        f"<b>{display_y}:</b> %{{customdata[4]:.3f}}<br>",
+    ]
+    # Only include color if applicable
+    if display_color:
+        parts.append(f"<b>{display_color}:</b> %{{customdata[5]:,.1f}}<br>")
+    # Only include size if applicable
+    if display_size:
+        parts.append(f"<b>{display_size}:</b> %{{customdata[6]:,.1f}}")
+    # Always hide the trace footer
+    parts.append("<extra></extra>")
+    hover_template = "".join(parts)
+    fig.update_traces(hovertemplate=hover_template)
 
     # show/hide the colorbar and push it into the reserved right margin
     fig.update_layout(coloraxis_showscale=bool(color_col))
