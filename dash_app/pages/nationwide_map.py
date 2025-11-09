@@ -88,6 +88,11 @@ def update_map(selected_year, selected_state, selected_color_by):
     else:
         scope = "usa"
 
+    # Index dff properly so that hover overlay will work, later.
+    dff = dff.dropna(subset=["county_fips"]).copy()
+    dff["county_fips"] = dff["county_fips"].astype(str).str.zfill(5)
+    ix = dff.set_index("county_fips")
+
     # Custom Color By Fields (which use a different palette than the default greenscale)
     if selected_color_by == "margin_bin":
         color_discrete_map=cfg.MARGIN_RED_BLUE_COLOR_SCALE
@@ -129,40 +134,39 @@ def update_map(selected_year, selected_state, selected_color_by):
         labels=labels
     )
 
-    # Format and prettify the hover data when hovering on a specific county.
-    # Order of fields in customdata must match the indices in hovertemplate
-    fig.update_traces(
-        customdata=df[[
-            "county_name",
-            "state_abbr",
-            "county_seat",
-            "votes_total",
-            "votes_pct_democrat",
-            "votes_pct_republican",
-            "population_pct_white",
-            "population_pct_black",
-            "population_pct_hispanic",
-            "median_household_income_2010",
-            "poverty_pct_overall_2010",
-            "bachelor_degree_pct_of_adults"
-        ]],
-        hovertemplate=
-            "<b>County:</b> %{customdata[0]}, %{customdata[1]}<br>" +
-            "<b>County Seat:</b> %{customdata[2]}<br>" +
-            "<br>" +
-            "<b>Total Votes:</b> %{customdata[3]:,}<br>" +
-            "<b>Vote % (Democrat):</b> %{customdata[4]:.1%}<br>" +
-            "<b>Vote % (Republican):</b> %{customdata[5]:.1%}<br>" +
-            "<br>" +
-            "<b>% of Population (White):</b> %{customdata[6]:.1%}<br>" +
-            "<b>% of Population (Black):</b> %{customdata[7]:.1%}<br>" +
-            "<b>% of Population (Hispanic):</b> %{customdata[8]:.1%}<br>" +
-            "<br>" +
-            "<b>Income (Median Household, 2010):</b> $%{customdata[9]:,}<br>" +
-            "<b>Poverty Rate (Overall, 2010):</b> %{customdata[10]:.1%}<br>" +
-            "<b>Bachelor's Degree (% of Adults):</b> %{customdata[11]:.1%}" +
-            "<extra></extra>"
+    
+    # Build the hover-box properly
+    hover_fields = [
+        "county_name", "state_abbr", "county_seat",
+        "votes_total", "votes_pct_democrat", "votes_pct_republican",
+        "population_pct_white", "population_pct_black", "population_pct_hispanic",
+        "median_household_income_2010", "poverty_pct_overall_2010", "bachelor_degree_pct_of_adults"
+    ]
+    customdata = dff[hover_fields]
+    hover_template = (
+        "<b>County:</b> %{customdata[0]}, %{customdata[1]}<br>" +
+        "<b>County Seat:</b> %{customdata[2]}<br><br>" +
+        "<b>Total Votes:</b> %{customdata[3]:,}<br>" +
+        "<b>Vote % (Democrat):</b> %{customdata[4]:.1%}<br>" +
+        "<b>Vote % (Republican):</b> %{customdata[5]:.1%}<br><br>"
+        "<b>% of Population (White):</b> %{customdata[6]:.1%}<br>" +
+        "<b>% of Population (Black):</b> %{customdata[7]:.1%}<br>" +
+        "<b>% of Population (Hispanic):</b> %{customdata[8]:.1%}<br><br>" +
+        "<b>Income (Median Household, 2010):</b> $%{customdata[9]:,}<br>" +
+        "<b>Poverty Rate (Overall, 2010):</b> %{customdata[10]:.1%}<br>" +
+        "<b>Bachelor's Degree (% of Adults):</b> %{customdata[11]:.1%}" +
+        "<extra></extra>"
     )
+    # Each group by the map color is one "trace".
+    # For each trace we must separately create hovers by FIPS, or else they will be completely misaligned.
+    # i.e. every county X will show data for some other county Y
+    for tr in fig.data:
+        # FIPS for just this trace, in the same order as the trace
+        locs = list(tr.locations)
+        aligned = ix.loc[locs, hover_fields]
+        tr.customdata = aligned.to_numpy()
+        # This will actually apply template per trace
+        tr.hovertemplate = hover_template
 
 
     # If zooming to a specific state, tighten the view
