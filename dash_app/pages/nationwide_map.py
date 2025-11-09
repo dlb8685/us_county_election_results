@@ -40,7 +40,7 @@ layout = html.Div([
             dcc.Dropdown(
                 id="year-dropdown",
                 options=[{"label": str(y), "value": y} for y in available_years],
-                value=2024,
+                value=2020,
                 clearable=False
             )
         ], style={"width": "30%", "display": "inline-block", "margin-left": "1%", "margin-right": "1%"}),
