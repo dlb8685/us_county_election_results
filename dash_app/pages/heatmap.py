@@ -55,7 +55,7 @@ layout = html.Div([
             dcc.Dropdown(
                 id="year-dropdown",
                 options=[{"label": str(y), "value": y} for y in sorted(df["year"].unique())],
-                value=max(df["year"]),
+                value=2020,
                 clearable=False
             )
         ], style={"width": "30%", "display": "inline-block", "margin-right": "1%"}),
@@ -130,17 +130,38 @@ def update_heatmap(state, year, selected_color_by):
             layer="above"
         )
 
-        # tiny invisible point just to provide hover (no legend)
+        # Generate the hover text for each rectangle.
+        county_name = dff["county_name"].iloc[i]
+        state_abbr = dff["state_abbr"].iloc[i]
+        county_seat = dff["county_seat"].iloc[i] if "county_seat" in dff.columns else "—"
+        votes_total = dff["votes_total"].iloc[i]
+        votes_pct_democrat = dff["votes_pct_democrat"].iloc[i]
+        votes_pct_republican = dff["votes_pct_republican"].iloc[i]
+        population_pct_white = dff["population_pct_white"].iloc[i]
+        population_pct_black = dff["population_pct_black"].iloc[i]
+        population_pct_hispanic = dff["population_pct_hispanic"].iloc[i]
+        median_household_income_2010 = dff["median_household_income_2010"].iloc[i]
+        poverty_pct_overall_2010 = dff["poverty_pct_overall_2010"].iloc[i]
+        bachelor_degree_pct_of_adults = dff["bachelor_degree_pct_of_adults"].iloc[i]
+        hover_text = (
+            f"<b>County:</b> {county_name}, {state_abbr}<br>"
+            f"<b>County Seat:</b> {county_seat}<br><br>"
+            f"<b>Total Votes:</b> {votes_total:,}<br>"
+            f"<b>Vote % (Democrat):</b> {votes_pct_democrat:.1%}<br>"
+            f"<b>Vote % (Republican):</b> {votes_pct_republican:.1%}<br><br>"
+            f"<b>% of Population (White):</b> {population_pct_white:.1%}<br>"
+            f"<b>% of Population (Black):</b> {population_pct_black:.1%}<br>"
+            f"<b>% of Population (Hispanic):</b> {population_pct_hispanic:.1%}<br><br>"
+            f"<b>Income (Median Household, 2010):</b> ${median_household_income_2010:,.0f}<br>"
+            f"<b>Poverty Rate (Overall, 2010):</b> {poverty_pct_overall_2010:.1%}<br>"
+            f"<b>Bachelor's Degree (% of Adults):</b> {bachelor_degree_pct_of_adults:.1%}<extra></extra>"
+        )
         fig.add_trace(go.Scatter(
             x=[r["x"] + r["dx"]/2],
             y=[r["y"] + r["dy"]/2],
             mode="markers",
             marker=dict(size=max(r["dx"], r["dy"]) * 5, opacity=0, color=fill_color),
-            hovertemplate=(
-                f"<b>{name}</b><br>"
-                f"{size_dim}: {dff[size_dim].iloc[i]:,}<br>"
-                f"{selected_color_by}: {cat}<extra></extra>"
-            ),
+            hovertemplate=hover_text,
             showlegend=False
         ))
 
@@ -160,9 +181,9 @@ def update_heatmap(state, year, selected_color_by):
 
     fig.update_layout(
         plot_bgcolor="white",
-        margin=dict(l=20, r=20, t=60, b=20),
-        title=f"{year} — {state if state!='ALL' else 'All States'} (Colored by {selected_color_by}, Sized by {size_dim})",
-        width=900, height=700,
+        margin=dict(l=450, r=20, t=60, b=20),
+        title=f"{year} — {state if state!='ALL' else 'All States'} (Colored by {available_color_label_text}, Sized by Total Votes)",
+        width=1350, height=700,
         legend=dict(
             # vertical legend
             orientation="v",
