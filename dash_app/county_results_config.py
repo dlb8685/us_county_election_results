@@ -68,13 +68,13 @@ SWING_RED_BLUE_COLOR_SCALE = {
 }
 # Control shading based on winning margin in votes.
 WINNING_MARGIN_VOTES_BINS = [
-    -999999999, -250000, -100000, -50000, -25000, -10000, -1000,
+    -999999999, -250000, -100000, -50000, -25000, -10000, -5000, -2000, -1000,
     0,
-    1000, 10000, 25000, 50000, 100000, 250000, 999999999
+    1000, 2000, 5000, 10000, 25000, 50000, 100000, 250000, 999999999
 ]
 WINNING_MARGIN_VOTES_LABELS = [
-    "Rep > 250k", "Rep 100-250k", "Rep 50-100k", "Rep 25-50k", "Rep 10-25k", "Rep 1-10k", "Rep < 1k",
-    "Dem < 1k", "Dem 1-10k", "Dem 10-25k", "Dem 25-50k", "Dem 50-100k", "Dem 100-250k", "Dem > 250k"
+    "Rep > 250k", "Rep 100-250k", "Rep 50-100k", "Rep 25-50k", "Rep 10-25k", "Rep 5-10k", "Rep 2-5k", "Rep 1-2k", "Rep < 1k",
+    "Dem < 1k", "Dem 1-2k", "Dem 2-5k", "Dem 5-10k", "Dem 10-25k", "Dem 25-50k", "Dem 50-100k", "Dem 100-250k", "Dem > 250k"
 ] 
 WINNING_MARGIN_VOTES_RED_BLUE_COLOR_SCALE = {
     "Rep > 250k": "rgb(128,0,0)",
@@ -82,10 +82,14 @@ WINNING_MARGIN_VOTES_RED_BLUE_COLOR_SCALE = {
     "Rep 50-100k": "rgb(192,96,96)",
     "Rep 25-50k": "rgb(255,96,96)",
     "Rep 10-25k": "rgb(255,128,128)",
-    "Rep 1-10k": "rgb(255,192,192)",
+    "Rep 5-10k": "rgb(255,160,160)",
+    "Rep 2-5k": "rgb(255,192,192)",
+    "Rep 1-2k": "rgb(255,208,208)",
     "Rep < 1k": "rgb(255,226,226)",
     "Dem < 1k": "rgb(226,226,255)",
-    "Dem 1-10k": "rgb(192,192,255)",
+    "Dem 1-2k": "rgb(208,208,255)",
+    "Dem 2-5k": "rgb(192,192,255)",
+    "Dem 5-10k": "rgb(160,160,255)",
     "Dem 10-25k": "rgb(128,128,255)",
     "Dem 25-50k": "rgb(96,96,255)",
     "Dem 50-100k": "rgb(96,96,192)",
