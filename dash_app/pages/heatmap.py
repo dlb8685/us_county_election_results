@@ -35,7 +35,7 @@ available_colors = [
 
 # ---- Defaults ----
 default_color = "winning_margin_in_votes_bin"
-default_size = "winning_margin_in_votes_abs"
+default_size = "votes_total"
 
 layout = html.Div([
     html.H3("County Heatmap (Categorical Discrete Colors)", style={"text-align": "center"}),
@@ -183,7 +183,7 @@ def update_heatmap(state, year, selected_color_by):
     fig.update_layout(
         plot_bgcolor="white",
         margin=dict(l=450, r=20, t=60, b=20),
-        title=f"{year} — {state if state!='ALL' else 'All States'} (Colored by {available_color_label_text}, Sized by Winning Margin in Votes)",
+        title=f"{year} — {state if state!='ALL' else 'All States'} (Colored by {available_color_label_text}, Sized by Number of Votes)",
         width=1350, height=700,
         legend=dict(
             # vertical legend
