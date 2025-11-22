@@ -51,7 +51,7 @@ layout = html.Div([
             dcc.Dropdown(
                 id="x-axis",
                 options=flattened_dropdown_options,
-                value="votes_pct_democrat_2016"
+                value="votes_pct_democrat_2020"
             )
         ], style={"width": "21%", "display": "inline-block", "margin-left": "1%", "margin-right": "1%"}),
 
@@ -60,7 +60,7 @@ layout = html.Div([
             dcc.Dropdown(
                 id="y-axis",
                 options=flattened_dropdown_options,
-                value="votes_pct_democrat_2020"
+                value="votes_pct_democrat_2024"
             )
         ], style={"width": "21%", "display": "inline-block", "margin-right": "1%"}),
 
@@ -69,7 +69,7 @@ layout = html.Div([
             dcc.Dropdown(
                 id="color-dim",
                 options=flattened_dropdown_options,
-                value="median_household_income_2010",
+                value="population_pct_hispanic_2024",
                 placeholder="Optional"
             )
         ], style={"width": "20%", "display": "inline-block", "margin-right": "1%"}),
@@ -79,7 +79,7 @@ layout = html.Div([
             dcc.Dropdown(
                 id="size-dim",
                 options=size_dropdown_options,
-                value="votes_total_2020",
+                value="votes_total_2024",
                 placeholder="Optional"
             )
         ], style={"width": "14%", "display": "inline-block", "margin-right": "1%"}),

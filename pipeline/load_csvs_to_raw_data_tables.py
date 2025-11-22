@@ -21,6 +21,12 @@ if __name__ == '__main__':
         "raw_data__mit_election_labs__countypres_2000_2024",
         con
     )
+    ## Second data set for 2024 results (MIT is messy)
+    load_csv_to_sqlite(
+        "data/raw_data/tonmcg__2024_US_County_Level_Presidential_Results.csv",
+        "raw_data__tonmcg__countypres_2024",
+        con
+    )
 
     # U.S. Census Bureau
     ## 2010
