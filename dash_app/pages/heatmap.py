@@ -19,6 +19,7 @@ df["swing_bin"] = cutils.bin_counties_by_swing(df["votes_pct_swing_from_prev_ele
 df["winning_margin_in_votes_bin"] = cutils.bin_counties_by_margin_in_votes(
     df["votes_democrat"] - df["votes_republican"]
 )
+df["winning_margin_in_votes_abs"] = abs(df["votes_democrat"] - df["votes_republican"])
 
 # Extract options for color dropdown
 available_years = sorted(df["year"].unique())
@@ -33,8 +34,8 @@ available_colors = [
 ]
 
 # ---- Defaults ----
-default_color = "margin_bin"
-default_size = "votes_total"
+default_color = "winning_margin_in_votes_bin"
+default_size = "winning_margin_in_votes_abs"
 
 layout = html.Div([
     html.H3("County Heatmap (Categorical Discrete Colors)", style={"text-align": "center"}),
@@ -55,7 +56,7 @@ layout = html.Div([
             dcc.Dropdown(
                 id="year-dropdown",
                 options=[{"label": str(y), "value": y} for y in sorted(df["year"].unique())],
-                value=2020,
+                value=2024,
                 clearable=False
             )
         ], style={"width": "30%", "display": "inline-block", "margin-right": "1%"}),
@@ -182,7 +183,7 @@ def update_heatmap(state, year, selected_color_by):
     fig.update_layout(
         plot_bgcolor="white",
         margin=dict(l=450, r=20, t=60, b=20),
-        title=f"{year} — {state if state!='ALL' else 'All States'} (Colored by {available_color_label_text}, Sized by Total Votes)",
+        title=f"{year} — {state if state!='ALL' else 'All States'} (Colored by {available_color_label_text}, Sized by Winning Margin in Votes)",
         width=1350, height=700,
         legend=dict(
             # vertical legend

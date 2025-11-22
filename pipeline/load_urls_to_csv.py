@@ -15,6 +15,13 @@ source_files = [
     {"url": "https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/VOQCHQ#",
         "csv_path": "data/raw_data/mit_election_labs__countypres_2000-2024.csv",
         "allows_url_download": False},
+    # 2024 Election results
+    # MIT Election Labs data was great for 2000-2020 but had some weird bugs and kinks for 2024.
+    # i.e. Maricopa County, Arizona has well over 1 million votes in other years but like 10 thousand in 2024.
+    # There were enough problems I made the decision to pull a completely separate dataset for 2024.
+    {"url": "https://raw.githubusercontent.com/tonmcg/US_County_Level_Election_Results_08-24/refs/heads/master/2024_US_County_Level_Presidential_Results.csv",
+        "csv_path": "data/raw_data/tonmcg__2024_US_County_Level_Presidential_Results.csv",
+        "allows_url_download": False},
     # U.S. Census Bureau
     {"url": "https://www2.census.gov/programs-surveys/popest/datasets/2020-2024/counties/asrh/cc-est2024-agesex-all.csv",
         "csv_path": "data/raw_data/us_census_bureau__cc-est2024-agesex-all.csv",

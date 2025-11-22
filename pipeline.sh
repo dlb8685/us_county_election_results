@@ -10,7 +10,7 @@ pip install -r requirements.txt
 
 # In theory this could automate the data pulls from third-party sources.
 # In practice they require accepting conditions, clicking "OK", etc. that prevent programmatic access.
-python pipeline/load_urls_to_csv.py
+# python pipeline/load_urls_to_csv.py
 
 # This will load raw data csvs into a sqlite database, as-is.
 python pipeline/load_csvs_to_raw_data_tables.py

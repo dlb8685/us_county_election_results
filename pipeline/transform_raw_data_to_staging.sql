@@ -49,6 +49,22 @@ from
 select county_fips, count(*) from staging__county_seats group by 1 having count(*) > 1 order by 2 desc;
 
 
+-- Clean up the 2024 raw data file for DC weirdness
+DROP TABLE IF EXISTS staging__tonmcg__countypres_2024;
+CREATE TABLE staging__tonmcg__countypres_2024 as
+select *
+from raw_data__tonmcg__countypres_2024
+where state_name != 'District of Columbia'
+union all
+-- They just had to throw a wrinkle in here...
+-- They had to do DC data by ward and not for all of DC at once.
+select 331 as "index", 'District of Columbia' as state_name, 11001 as county_fips, 'DISTRICT OF COLUMBIA' as county_name,
+    sum(votes_gop) as votes_gop, sum(votes_dem) as votes_dem, sum(total_votes) as total_votes, null as diff, null as per_gop,
+    null as per_dem, null as per_point_diff
+from raw_data__tonmcg__countypres_2024
+where state_name = 'District of Columbia'
+;
+
 
 ---- County election results for each election ----
 DROP TABLE IF EXISTS staging__county_election_results_by_year;
@@ -164,11 +180,11 @@ from
                     length(replace(cast(county_fips as text), '.0', '')) = 4 then '0' else '' end
                     -- The raw data adds a .0 at the end of all FIPS by treating as a numeric, truncate that.
                     || replace(cast(county_fips as text), '.0', '') as county_fips,
-                -- The default should be to take the county name as of 2024, to avoid scenarios where there are small differences.
+                -- The default should be to take the county name as of 2020, to avoid scenarios where there are small differences.
                 -- i.e. for 51690 it's called MARTINSVILLE earlier, then the data set changes it to MARTINSVILLE CITY in the 2020s.
                 -- For Mickey Mouse cases like that, assume they changed it for a valid reason in 2024 and that the most recent is slightly preferable.
                 coalesce(
-                    (select county_name from raw_data__mit_election_labs__countypres_2000_2024 where year = 2024 and county_fips = t.county_fips),
+                    (select county_name from raw_data__mit_election_labs__countypres_2000_2024 where year = 2020 and county_fips = t.county_fips),
                     (select max(county_name) from raw_data__mit_election_labs__countypres_2000_2024 where county_fips = t.county_fips)
                 ) as county_name,
                 state as state_name,
@@ -176,28 +192,23 @@ from
                 year,
                 -- There are just several states here with random splits that aren't MECE and are double counted or 4x counted in TX.
                 -- This was a pain to figure out which states did and did not have problems in 2024, collating with third-party state vote totals.
-                sum(case when year < 2024 and party = 'DEMOCRAT' then candidatevotes
-                    when year = 2024 and state_po not in ('AR', 'AZ', 'IA', 'LA', 'OK', 'PA', 'SC', 'TX') and party = 'DEMOCRAT' then candidatevotes
-                    when year = 2024 and state_po in ('AR', 'AZ', 'IA', 'LA', 'OK', 'PA', 'SC', 'TX') and mode in ('TOTAL', 'TOTAL VOTES') and party = 'DEMOCRAT' then candidatevotes
+                sum(case when party = 'DEMOCRAT' then candidatevotes
                     else 0 end) as votes_democrat,
-                sum(case when year < 2024 and party = 'REPUBLICAN' then candidatevotes
-                    when year = 2024 and state_po not in ('AR', 'AZ', 'IA', 'LA', 'OK', 'PA', 'SC', 'TX') and party = 'REPUBLICAN' then candidatevotes
-                    when year = 2024 and state_po in ('AR', 'AZ', 'IA', 'LA', 'OK', 'PA', 'SC', 'TX') and mode in ('TOTAL', 'TOTAL VOTES') and party = 'REPUBLICAN' then candidatevotes
+                sum(case when party = 'REPUBLICAN' then candidatevotes
                     else 0 end) as votes_republican,
                 -- "Helpfully" the data starts to include Undervotes and Overvotes for some counties in 2024,
                 -- Which don't actually count in totalvotes or as a vote for anyone...
                 -- Also some states have their own special format, just why.... especially in the 2024 data.
-                sum(case when year < 2024 and party not in ('DEMOCRAT', 'REPUBLICAN', 'UNDERVOTES', 'OVERVOTES') then candidatevotes
-                    when year = 2024 and state_po not in ('AR', 'AZ', 'IA', 'LA', 'OK', 'PA', 'SC', 'TX') and party not in ('DEMOCRAT', 'REPUBLICAN', 'UNDERVOTES', 'OVERVOTES') then candidatevotes
-                    when year = 2024 and state_po in ('AR', 'AZ', 'IA', 'LA', 'OK', 'PA', 'SC', 'TX') and mode in ('TOTAL', 'TOTAL VOTES') and party not in ('DEMOCRAT', 'REPUBLICAN', 'UNDERVOTES', 'OVERVOTES') then candidatevotes
+                -- EDIT: Leaving comments as a paper trail but removing a bunch of 2024-specific case logic and just pulling from a new source.
+                sum(case when party not in ('DEMOCRAT', 'REPUBLICAN', 'UNDERVOTES', 'OVERVOTES') then candidatevotes
                     else 0 end) as votes_other,
-                sum(case when year < 2024 and party not in ('UNDERVOTES', 'OVERVOTES') then candidatevotes
-                    when year = 2024 and state_po not in ('AR', 'AZ', 'IA', 'LA', 'OK', 'PA', 'SC', 'TX') and party not in ('UNDERVOTES', 'OVERVOTES') then candidatevotes
-                    when year = 2024 and state_po in ('AR', 'AZ', 'IA', 'LA', 'OK', 'PA', 'SC', 'TX') and party not in ('UNDERVOTES', 'OVERVOTES') and mode in ('TOTAL', 'TOTAL VOTES') then candidatevotes
+                sum(case when party not in ('UNDERVOTES', 'OVERVOTES') then candidatevotes
                     else 0 end) as votes_total
             from
                 (
-                select year,
+                -- Use the MIT data set for 2000-2020
+                select
+                    year,
                     case state
                         when 'NEW HAMPSHIRE' then 'New Hampshire'
                         when 'NEW JERSEY' then 'New Jersey'
@@ -212,33 +223,85 @@ from
                         else UPPER(SUBSTR(state, 1, 1)) || LOWER(SUBSTR(state, 2))
                     end as state
                     , state_po, county_name,
-                    -- 3 counties have what can only be a glitch in 2024 data. Some rows have one FIPS, some have another.
-                    -- Yuma County, AZ. Yuba County, CA. Mitchell County, GA.
-                    case
-                        when year = 2024 and county_fips = 4029.0 then 4027.0
-                        when year = 2024 and county_fips = 6117.0 then 6115.0
-                        when year = 2024 and county_fips = 13203.0 then 13205.0
-                        else county_fips
-                    end as county_fips, candidate, party, candidatevotes, totalvotes, version, mode
+                    county_fips, candidate, party, candidatevotes, totalvotes, version, mode
                     from raw_data__mit_election_labs__countypres_2000_2024
-                    -- The 2024 data has a pretty serious "trap", they have both breakdowns *and* TOTAL VOTES for some states.
-                    -- If you add all of those together, you will 2x the actual number of votes.
-                    -- But many other states and years *only* have TOTAL VOTES, so you can't just blanket exclude them.
-                    -- Here are the states and years where you should actually not count TOTAL VOTES.
-                    /*where
-                        not (
-                        (year = 2024 and state_po in ('AZ', 'IA') and mode = 'TOTAL VOTES'
-                        -- AZ has crazy splits for every county *except* Maricopa which is like 80% of their votes. Face palm.
-                        and county_fips not in (4015))
-                        )*/
+                    -- The 2024 data has some weird edge cases and issues that were substantially messing this up.
+                    -- Eventually I decided to find a second data source for 2024 only. This dataset is great for other years.
+                    where
+                        year != 2024
                 union all
-                -- The source data was straight up missing vote totals for a couple of party/fips combos in 2024.
-                -- These are added synthetically.
-                select 2024 as year, 'California' as state, 'CA' as state_po, 'SUTTER' as county_name, 6101.0 as county_fips,
-                    'KAMALA D HARRIS' as candidate, 'DEMOCRAT' as party, 13016 as candidatevotes, 39336 as totalvotes, 20250821 as version, 'TOTAL VOTES' as mode
+                -- Use an alternative dataset for 2024 election results.
+                -- This was a late swap-in. But I checked some counties in Arizona and Arkansas that were issues in MIT
+                -- This dataset had good data for those.
+                -- It does need to be split into 3 queries to have one row per Democrat/Republican/Other to match the MIT format, so this gets long.
+                select
+                    2024 as year,
+                    -- Make the state name play nice with MIT data
+                    replace(t.state_name, 'Columbia', 'columbia') as state,
+                    case t.state_name
+                        when 'Alabama' then 'AL' when 'Alaska' then 'AK' when 'Arizona' then 'AZ' when 'Arkansas' then 'AR' when 'California' then 'CA' when 'Colorado' then 'CO' when 'Connecticut' then 'CT'
+                        when 'Delaware' then 'DE' when 'District of Columbia' then 'DC' when 'Florida' then 'FL' when 'Georgia' then 'GA' when 'Hawaii' then 'HI' when 'Idaho' then 'ID' when 'Illinois' then 'IL'
+                        when 'Indiana' then 'IN' when 'Iowa' then 'IA' when 'Kansas' then 'KS' when 'Kentucky' then 'KY' when 'Louisiana' then 'LA' when 'Maine' then 'ME' when 'Maryland' then 'MD'
+                        when 'Massachusetts' then 'MA' when 'Michigan' then 'MI' when 'Minnesota' then 'MN' when 'Mississippi' then 'MS' when 'Missouri' then 'MO' when 'Montana' then 'MT' when 'Nebraska' then 'NE'
+                        when 'Nevada' then 'NV' when 'New Hampshire' then 'NH' when 'New Jersey' then 'NJ' when 'New Mexico' then 'NM' when 'New York' then 'NY' when 'North Carolina' then 'NC' when 'North Dakota' then 'ND'
+                        when 'Ohio' then 'OH' when 'Oklahoma' then 'OK' when 'Oregon' then 'OR' when 'Pennsylvania' then 'PA' when 'Rhode Island' then 'RI' when 'South Carolina' then 'SC' when 'South Dakota' then 'SD'
+                        when 'Tennessee' then 'TN' when 'Texas' then 'TX' when 'Utah' then 'UT' when 'Vermont' then 'VT' when 'Virginia' then 'VA' when 'Washington' then 'WA' when 'West Virginia' then 'WV'
+                        when 'Wisconsin' then 'WI' when 'Wyoming' then 'WY'
+                    end as state_po,
+                    -- Match MIT's format for county name
+                    -- The default should be to take the county name as of 2020, to avoid scenarios where there are small differences.
+                    -- i.e. for 51690 it's called MARTINSVILLE earlier, then the data set changes it to MARTINSVILLE CITY in the 2020s.
+                    -- For Mickey Mouse cases like that, assume they changed it for a valid reason in 2024 and that the most recent is slightly preferable.
+                    coalesce(
+                        (select county_name from raw_data__mit_election_labs__countypres_2000_2024 where year = 2020 and county_fips = t.county_fips),
+                        (select max(county_name) from raw_data__mit_election_labs__countypres_2000_2024 where county_fips = t.county_fips)
+                    ) as county_name,
+                    t.county_fips, 'Kamala Harris' as candidate,
+                    'DEMOCRAT' as party, t.votes_dem as candidatevotes, t.total_votes as totalvotes, null as version, null as mode
+                    from staging__tonmcg__countypres_2024 t
                 union all
-                select 2024 as year, 'California' as state, 'CA' as state_po, 'YUBA' as county_name, 6115.0 as county_fips,
-                    'DONALD J TRUMP' as candidate, 'REPUBLICAN' as party, 18491 as candidatevotes, 30070 as totalvotes, 20250821 as version, 'TOTAL VOTES' as mode
+                select
+                    2024 as year,
+                    replace(t.state_name, 'Columbia', 'columbia') as state,
+                    case t.state_name
+                        when 'Alabama' then 'AL' when 'Alaska' then 'AK' when 'Arizona' then 'AZ' when 'Arkansas' then 'AR' when 'California' then 'CA' when 'Colorado' then 'CO' when 'Connecticut' then 'CT'
+                        when 'Delaware' then 'DE' when 'District of Columbia' then 'DC' when 'Florida' then 'FL' when 'Georgia' then 'GA' when 'Hawaii' then 'HI' when 'Idaho' then 'ID' when 'Illinois' then 'IL'
+                        when 'Indiana' then 'IN' when 'Iowa' then 'IA' when 'Kansas' then 'KS' when 'Kentucky' then 'KY' when 'Louisiana' then 'LA' when 'Maine' then 'ME' when 'Maryland' then 'MD'
+                        when 'Massachusetts' then 'MA' when 'Michigan' then 'MI' when 'Minnesota' then 'MN' when 'Mississippi' then 'MS' when 'Missouri' then 'MO' when 'Montana' then 'MT' when 'Nebraska' then 'NE'
+                        when 'Nevada' then 'NV' when 'New Hampshire' then 'NH' when 'New Jersey' then 'NJ' when 'New Mexico' then 'NM' when 'New York' then 'NY' when 'North Carolina' then 'NC' when 'North Dakota' then 'ND'
+                        when 'Ohio' then 'OH' when 'Oklahoma' then 'OK' when 'Oregon' then 'OR' when 'Pennsylvania' then 'PA' when 'Rhode Island' then 'RI' when 'South Carolina' then 'SC' when 'South Dakota' then 'SD'
+                        when 'Tennessee' then 'TN' when 'Texas' then 'TX' when 'Utah' then 'UT' when 'Vermont' then 'VT' when 'Virginia' then 'VA' when 'Washington' then 'WA' when 'West Virginia' then 'WV'
+                        when 'Wisconsin' then 'WI' when 'Wyoming' then 'WY'
+                    end as state_po,
+                    coalesce(
+                        (select county_name from raw_data__mit_election_labs__countypres_2000_2024 where year = 2020 and county_fips = t.county_fips),
+                        (select max(county_name) from raw_data__mit_election_labs__countypres_2000_2024 where county_fips = t.county_fips)
+                    ) as county_name,
+                    t.county_fips, 'Donald Trump' as candidate,
+                    'REPUBLICAN' as party, t.votes_gop as candidatevotes, t.total_votes as totalvotes, null as version, null as mode
+                    from staging__tonmcg__countypres_2024 t
+                union all
+                select
+                    2024 as year,
+                    replace(t.state_name, 'Columbia', 'columbia') as state,
+                    case t.state_name
+                        when 'Alabama' then 'AL' when 'Alaska' then 'AK' when 'Arizona' then 'AZ' when 'Arkansas' then 'AR' when 'California' then 'CA' when 'Colorado' then 'CO' when 'Connecticut' then 'CT'
+                        when 'Delaware' then 'DE' when 'District of Columbia' then 'DC' when 'Florida' then 'FL' when 'Georgia' then 'GA' when 'Hawaii' then 'HI' when 'Idaho' then 'ID' when 'Illinois' then 'IL'
+                        when 'Indiana' then 'IN' when 'Iowa' then 'IA' when 'Kansas' then 'KS' when 'Kentucky' then 'KY' when 'Louisiana' then 'LA' when 'Maine' then 'ME' when 'Maryland' then 'MD'
+                        when 'Massachusetts' then 'MA' when 'Michigan' then 'MI' when 'Minnesota' then 'MN' when 'Mississippi' then 'MS' when 'Missouri' then 'MO' when 'Montana' then 'MT' when 'Nebraska' then 'NE'
+                        when 'Nevada' then 'NV' when 'New Hampshire' then 'NH' when 'New Jersey' then 'NJ' when 'New Mexico' then 'NM' when 'New York' then 'NY' when 'North Carolina' then 'NC' when 'North Dakota' then 'ND'
+                        when 'Ohio' then 'OH' when 'Oklahoma' then 'OK' when 'Oregon' then 'OR' when 'Pennsylvania' then 'PA' when 'Rhode Island' then 'RI' when 'South Carolina' then 'SC' when 'South Dakota' then 'SD'
+                        when 'Tennessee' then 'TN' when 'Texas' then 'TX' when 'Utah' then 'UT' when 'Vermont' then 'VT' when 'Virginia' then 'VA' when 'Washington' then 'WA' when 'West Virginia' then 'WV'
+                        when 'Wisconsin' then 'WI' when 'Wyoming' then 'WY'
+                    end as state_po,
+                    coalesce(
+                        (select county_name from raw_data__mit_election_labs__countypres_2000_2024 where year = 2020 and county_fips = t.county_fips),
+                        (select max(county_name) from raw_data__mit_election_labs__countypres_2000_2024 where county_fips = t.county_fips)
+                    ) as county_name,
+                    t.county_fips, 'Other' as candidate,
+                    'OTHER' as party, t.total_votes - t.votes_gop - t.votes_dem as candidatevotes, t.total_votes as totalvotes,
+                    null as version, null as mode
+                    from staging__tonmcg__countypres_2024 t
                 ) t
             group by 
                 1,3,4,5
