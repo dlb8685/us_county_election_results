@@ -45,5 +45,5 @@ layout = html.Div([
     # Conclusion
     html.H3("Conclusion"),
     html.P("These are just some very brief examples of how the tools on this site can be used. Separately, there is a much more extensive look at the 2024 election with some analysis of why the results turned out the way they did, especially in comparison to 2020."),
-], style={"margin-left": "5%", "margin-right": "5%"}
+], style={"margin-left": "3%", "margin-right": "3%"}
 )
