@@ -72,7 +72,10 @@ layout = html.Div([
         ], style={"width": "30%", "display": "inline-block", "margin-right": "1%"}),
     ], style={"marginBottom": "20px"}),
 
-    dcc.Graph(id="heatmap-squarify")
+    dcc.Graph(id="heatmap-squarify"),
+    
+    # Summary table
+    html.Div(id="heatmap-summary-table", style={"margin-top": "30px"})
 ])
 
 
@@ -196,3 +199,25 @@ def update_heatmap(state, year, selected_color_by):
         )
     )
     return fig
+
+
+@dash.callback(
+    Output("heatmap-summary-table", "children"),
+    Input("state-dropdown", "value"),
+    Input("year-dropdown", "value")
+)
+def update_summary_table(state, year):
+    """Display state-level summary table for the heatmap"""
+    if state is None or year is None:
+        return None
+    
+    # Calculate summary using utility function
+    summary = cutils.calculate_state_summary(df, state, year)
+    if summary is None:
+        return None
+    
+    # Create table using utility function
+    table = cutils.create_state_summary_table(summary)
+    
+    # Wrap in container using utility function
+    return cutils.create_state_summary_container([table])
