@@ -1,5 +1,6 @@
 import dash
-from dash import html, dcc, Input, Output
+from dash import html, dcc, Input, Output, State, ctx
+from dash.exceptions import PreventUpdate
 import pandas as pd
 import plotly.express as px
 import county_results_config as cfg
@@ -33,52 +34,151 @@ available_colors = [
 layout = html.Div([
     html.H3("U.S. Presidential Election Results by County", style={"text-align": "center"}),
     
+    # Comparison mode toggle
     html.Div([
-        # Year dropdown
-        html.Div([
-            html.Label("Select Year:"),
-            dcc.Dropdown(
-                id="year-dropdown",
-                options=[{"label": str(y), "value": y} for y in available_years],
-                value=2024,
-                clearable=False
-            )
-        ], style={"width": "30%", "display": "inline-block", "margin-left": "1%", "margin-right": "1%"}),
-        # State dropdown
-        html.Div([
-            html.Label("Select State:"),
-            dcc.Dropdown(
-                id="state-dropdown",
-                options=[{"label": s, "value": s} for s in available_states],
-                value="All",
-                clearable=False,
-            )
-        ], style={"width": "30%", "display": "inline-block", "margin-right": "1%"}),
-        # Color dropdown
-        html.Div([
-            html.Label("Color By:"),
-            dcc.Dropdown(
-                id="color-by-dropdown",
-                options=[{"label": c["label"], "value": c["value"]} for c in available_colors],
-                value="margin_bin",
-                clearable=False
-            )
-        ], style={"width": "30%", "display": "inline-block", "margin-right": "1%"}),
+        html.Label("Comparison Mode:", style={"font-weight": "bold", "margin-right": "10px"}),
+        dcc.RadioItems(
+            id="comparison-mode-dual",
+            options=[
+                {"label": " Single Map", "value": "single"},
+                {"label": " Side-by-Side Comparison", "value": "dual"}
+            ],
+            value="single",
+            inline=True,
+            labelStyle={"margin-right": "30px"},  # Add spacing between options
+            style={"margin-bottom": "20px"}
+        )
+    ], style={"text-align": "center", "margin-bottom": "20px"}),
     
-    ], style={"display": "flex", "flexWrap": "wrap", "gap": "20px", "marginBottom": "20px"}),
-
-    dcc.Graph(id="county-map", style={"height": "85vh"})
+    # Shared state control (always visible)
+    html.Div([
+        html.Label("Select State:"),
+        dcc.Dropdown(
+            id="state-dropdown-dual",
+            options=[{"label": s, "value": s} for s in available_states],
+            value="All",
+            clearable=False,
+        )
+    ], style={"width": "45%", "margin": "0 auto 20px auto"}),
+    
+    # Controls container - will show different controls based on mode
+    html.Div(id="controls-container-dual"),
+    
+    # Maps container
+    html.Div(id="maps-container-dual"),
+    
+    # Summary table (only shows when a state is selected)
+    html.Div(id="summary-table-container-dual", style={"margin-top": "30px"})
 ])
 
 
-# ---- Callback ----
+# ---- Callback to update controls based on mode ----
 @dash.callback(
-    Output("county-map", "figure"),
-    Input("year-dropdown", "value"),
-    Input("state-dropdown", "value"),
-    Input("color-by-dropdown", "value")
+    Output("controls-container-dual", "children"),
+    Input("comparison-mode-dual", "value")
 )
-def update_map(selected_year, selected_state, selected_color_by):
+def update_controls(mode):
+    if mode == "single":
+        # Single map controls
+        return html.Div([
+            html.Div([
+                # Year dropdown
+                html.Div([
+                    html.Label("Select Year:"),
+                    dcc.Dropdown(
+                        id="year-dropdown-dual",
+                        options=[{"label": str(y), "value": y} for y in available_years],
+                        value=2024,
+                        clearable=False
+                    )
+                ], style={"width": "45%", "display": "inline-block", "margin-right": "5%"}),
+                # Color dropdown
+                html.Div([
+                    html.Label("Color By:"),
+                    dcc.Dropdown(
+                        id="color-by-dropdown-dual",
+                        options=[{"label": c["label"], "value": c["value"]} for c in available_colors],
+                        value="margin_bin",
+                        clearable=False
+                    )
+                ], style={"width": "45%", "display": "inline-block"}),
+            ], style={"display": "flex", "flexWrap": "wrap", "gap": "20px", "marginBottom": "20px", "justify-content": "center"}),
+        ])
+    else:
+        # Dual map controls - two sets of controls side by side
+        return html.Div([
+            # Two columns of controls
+            html.Div([
+                # Left map controls
+                html.Div([
+                    html.H5("Left Map", style={"text-align": "center", "color": "#2c3e50"}),
+                    html.Div([
+                        html.Label("Year:"),
+                        dcc.Dropdown(
+                            id="year-dropdown-dual",
+                            options=[{"label": str(y), "value": y} for y in available_years],
+                            value=2000,
+                            clearable=False
+                        )
+                    ], style={"margin-bottom": "15px"}),
+                    html.Div([
+                        html.Label("Color By:"),
+                        dcc.Dropdown(
+                            id="color-by-dropdown-dual",
+                            options=[{"label": c["label"], "value": c["value"]} for c in available_colors],
+                            value="margin_bin",
+                            clearable=False
+                        )
+                    ]),
+                ], style={"width": "48%", "display": "inline-block", "vertical-align": "top", "padding": "15px", "background-color": "#f8f9fa", "border-radius": "5px"}),
+                
+                # Right map controls
+                html.Div([
+                    html.H5("Right Map", style={"text-align": "center", "color": "#2c3e50"}),
+                    html.Div([
+                        html.Label("Year:"),
+                        dcc.Dropdown(
+                            id="year-dropdown-2-dual",
+                            options=[{"label": str(y), "value": y} for y in available_years],
+                            value=2024,
+                            clearable=False
+                        )
+                    ], style={"margin-bottom": "15px"}),
+                    html.Div([
+                        html.Label("Color By:"),
+                        dcc.Dropdown(
+                            id="color-by-dropdown-2-dual",
+                            options=[{"label": c["label"], "value": c["value"]} for c in available_colors],
+                            value="margin_bin",
+                            clearable=False
+                        )
+                    ]),
+                ], style={"width": "48%", "display": "inline-block", "vertical-align": "top", "padding": "15px", "background-color": "#f8f9fa", "border-radius": "5px", "margin-left": "2%"}),
+            ], style={"margin-bottom": "20px"}),
+        ])
+
+
+# ---- Callback to update maps container ----
+@dash.callback(
+    Output("maps-container-dual", "children"),
+    Input("comparison-mode-dual", "value")
+)
+def update_maps_container(mode):
+    if mode == "single":
+        return dcc.Graph(id="county-map-dual", style={"height": "85vh"})
+    else:
+        return html.Div([
+            html.Div([
+                dcc.Graph(id="county-map-dual", style={"height": "85vh"})
+            ], style={"width": "49.5%", "display": "inline-block"}),
+            html.Div([
+                dcc.Graph(id="county-map-2-dual", style={"height": "85vh"})
+            ], style={"width": "49.5%", "display": "inline-block", "margin-left": "1%"}),
+        ])
+
+
+# ---- Helper function to create a map ----
+def create_map(selected_year, selected_state, selected_color_by):
     dff = df[df["year"] == selected_year].copy()
     
     # Filter for state if selected
@@ -200,3 +300,130 @@ def update_map(selected_year, selected_state, selected_color_by):
     )
         
     return fig
+
+
+# ---- Single callback for left map that works in both modes ----
+@dash.callback(
+    Output("county-map-dual", "figure"),
+    Input("year-dropdown-dual", "value"),
+    Input("state-dropdown-dual", "value"),
+    Input("color-by-dropdown-dual", "value")
+)
+def update_map_left(selected_year, selected_state, selected_color_by):
+    return create_map(selected_year, selected_state, selected_color_by)
+
+
+# ---- Callback for right map (only active in dual mode) ----
+# Using State instead of Input for the comparison mode check
+@dash.callback(
+    Output("county-map-2-dual", "figure"),
+    Input("comparison-mode-dual", "value"),
+    State("year-dropdown-2-dual", "value"),
+    State("state-dropdown-dual", "value"),
+    State("color-by-dropdown-2-dual", "value"),
+    prevent_initial_call=False
+)
+def update_map_right(mode, selected_year, selected_state, selected_color_by):
+    # Only render if we're in dual mode and have valid inputs
+    if mode == "dual" and selected_year is not None and selected_color_by is not None:
+        return create_map(selected_year, selected_state, selected_color_by)
+    # Return empty figure if in single mode
+    return {}
+
+
+# ---- Additional callback to update right map when its dropdowns OR state changes ----
+@dash.callback(
+    Output("county-map-2-dual", "figure", allow_duplicate=True),
+    Input("year-dropdown-2-dual", "value"),
+    Input("color-by-dropdown-2-dual", "value"),
+    Input("state-dropdown-dual", "value"),
+    State("comparison-mode-dual", "value"),
+    prevent_initial_call=True
+)
+def update_map_right_on_change(selected_year, selected_color_by, selected_state, mode):
+    # Only update if we're in dual mode
+    if mode != "dual":
+        raise PreventUpdate
+    
+    # If any required value is None, don't update
+    if selected_year is None or selected_color_by is None:
+        raise PreventUpdate
+        
+    return create_map(selected_year, selected_state, selected_color_by)
+
+
+# ---- Callback for summary table ----
+@dash.callback(
+    Output("summary-table-container-dual", "children"),
+    Input("state-dropdown-dual", "value"),
+    Input("year-dropdown-dual", "value"),
+    Input("comparison-mode-dual", "value"),
+    prevent_initial_call=False
+)
+def update_summary_table(selected_state, year_left, mode):
+    try:
+        # Only show table when a specific state is selected (not "All")
+        if selected_state == "All" or selected_state is None:
+            return None
+        
+        if year_left is None:
+            return None
+        
+        # In single mode, only show one table
+        if mode == "single":
+            summary_data = cutils.calculate_state_summary(df, selected_state, year_left)
+            if summary_data:
+                table = cutils.create_state_summary_table(summary_data)
+                return cutils.create_state_summary_container([table])
+            return None
+        
+        # In dual mode, we need to handle this separately since we can't access year-dropdown-2-dual as State
+        # We'll show just the left table for now, and add a separate callback for dual mode
+        summary_data = cutils.calculate_state_summary(df, selected_state, year_left)
+        if summary_data:
+            table = cutils.create_state_summary_table(summary_data)
+            return cutils.create_state_summary_container([table])
+        return None
+    except Exception:
+        # Silently fail if there are any issues
+        return None
+
+
+# ---- Additional callback for dual mode summary table ----
+@dash.callback(
+    Output("summary-table-container-dual", "children", allow_duplicate=True),
+    Input("year-dropdown-2-dual", "value"),
+    Input("year-dropdown-dual", "value"),
+    Input("comparison-mode-dual", "value"),
+    Input("state-dropdown-dual", "value"),
+    prevent_initial_call=True
+)
+def update_summary_table_dual(year_right, year_left, mode, selected_state):
+    try:
+        # Only update in dual mode with a valid state
+        if mode != "dual" or selected_state == "All" or selected_state is None:
+            raise PreventUpdate
+        
+        # If we don't have the left year, can't show anything
+        if year_left is None:
+            raise PreventUpdate
+        
+        # Create tables - show left, and right if available
+        tables = []
+        summary_left = cutils.calculate_state_summary(df, selected_state, year_left)
+        if summary_left:
+            tables.append(cutils.create_state_summary_table(summary_left))
+        
+        # Show right table if year exists (even if same as left)
+        if year_right is not None:
+            summary_right = cutils.calculate_state_summary(df, selected_state, year_right)
+            if summary_right:
+                tables.append(cutils.create_state_summary_table(summary_right))
+        
+        if len(tables) == 0:
+            return None
+        
+        return cutils.create_state_summary_container(tables)
+    except Exception:
+        # Silently fail if there are any issues
+        raise PreventUpdate

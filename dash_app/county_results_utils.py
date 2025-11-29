@@ -1,3 +1,4 @@
+from dash import html
 import pandas as pd
 import county_results_config as cfg
 
