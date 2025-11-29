@@ -90,9 +90,18 @@ def update_heatmap(state, year, selected_color_by):
     if state != "ALL":
         dff = dff[dff["state_name"] == state]
 
-    size_dim = default_size
+    # Calculate margin in votes (positive = Democrat won, negative = Republican won)
+    dff["margin_in_votes"] = dff["votes_democrat"] - dff["votes_republican"]
+    
+    # Size by absolute margin in votes
+    size_dim = "winning_margin_in_votes_abs"
+    
     dff = dff.dropna(subset=[selected_color_by, size_dim])
-    dff = dff.sort_values(size_dim, ascending=False).head(200)
+    
+    # Sort by margin_in_votes: largest Democrat wins first (most positive), 
+    # down to largest Republican wins last (most negative)
+    # This makes them meet in the middle
+    dff = dff.sort_values("margin_in_votes", ascending=False).head(200)
 
     # --- squarify expects sizes that sum to width*height ---
     W, H = 100, 100
@@ -141,18 +150,27 @@ def update_heatmap(state, year, selected_color_by):
         votes_total = dff["votes_total"].iloc[i]
         votes_pct_democrat = dff["votes_pct_democrat"].iloc[i]
         votes_pct_republican = dff["votes_pct_republican"].iloc[i]
+        margin_in_votes = dff["margin_in_votes"].iloc[i]
         population_pct_white = dff["population_pct_white"].iloc[i]
         population_pct_black = dff["population_pct_black"].iloc[i]
         population_pct_hispanic = dff["population_pct_hispanic"].iloc[i]
         median_household_income_2010 = dff["median_household_income_2010"].iloc[i]
         poverty_pct_overall_2010 = dff["poverty_pct_overall_2010"].iloc[i]
         bachelor_degree_pct_of_adults = dff["bachelor_degree_pct_of_adults"].iloc[i]
+        
+        # Format the margin nicely
+        if margin_in_votes > 0:
+            margin_text = f"D +{margin_in_votes:,.0f}"
+        else:
+            margin_text = f"R +{abs(margin_in_votes):,.0f}"
+        
         hover_text = (
             f"<b>County:</b> {county_name}, {state_abbr}<br>"
             f"<b>County Seat:</b> {county_seat}<br><br>"
             f"<b>Total Votes:</b> {votes_total:,}<br>"
             f"<b>Vote % (Democrat):</b> {votes_pct_democrat:.1%}<br>"
-            f"<b>Vote % (Republican):</b> {votes_pct_republican:.1%}<br><br>"
+            f"<b>Vote % (Republican):</b> {votes_pct_republican:.1%}<br>"
+            f"<b>Raw Vote Margin:</b> {margin_text}<br><br>"
             f"<b>% of Population (White):</b> {population_pct_white:.1%}<br>"
             f"<b>% of Population (Black):</b> {population_pct_black:.1%}<br>"
             f"<b>% of Population (Hispanic):</b> {population_pct_hispanic:.1%}<br><br>"
@@ -186,7 +204,7 @@ def update_heatmap(state, year, selected_color_by):
     fig.update_layout(
         plot_bgcolor="white",
         margin=dict(l=450, r=20, t=60, b=20),
-        title=f"{year} — {state if state!='ALL' else 'All States'} (Colored by {available_color_label_text}, Sized by Number of Votes)",
+        title=f"{year} — {state if state!='ALL' else 'All States'} (Colored by {available_color_label_text}, Sized by Margin in Votes, Sorted Dem→Rep)",
         width=1350, height=700,
         legend=dict(
             # vertical legend

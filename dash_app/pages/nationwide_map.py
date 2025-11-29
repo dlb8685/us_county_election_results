@@ -181,6 +181,14 @@ def update_maps_container(mode):
 def create_map(selected_year, selected_state, selected_color_by):
     dff = df[df["year"] == selected_year].copy()
     
+    # Calculate margin in votes for hover display
+    dff["margin_in_votes"] = dff["votes_democrat"] - dff["votes_republican"]
+    
+    # Pre-format margin text for display
+    dff["margin_text"] = dff["margin_in_votes"].apply(
+        lambda x: f"D +{x:,.0f}" if x > 0 else f"R +{abs(x):,.0f}"
+    )
+    
     # Filter for state if selected
     if selected_state != "All":
         dff = dff[dff["state_name"] == selected_state]
@@ -238,7 +246,7 @@ def create_map(selected_year, selected_state, selected_color_by):
     # Build the hover-box properly
     hover_fields = [
         "county_name", "state_abbr", "county_seat",
-        "votes_total", "votes_pct_democrat", "votes_pct_republican",
+        "votes_total", "votes_pct_democrat", "votes_pct_republican", "margin_text",
         "population_pct_white", "population_pct_black", "population_pct_hispanic",
         "median_household_income_2010", "poverty_pct_overall_2010", "bachelor_degree_pct_of_adults"
     ]
@@ -248,13 +256,14 @@ def create_map(selected_year, selected_state, selected_color_by):
         "<b>County Seat:</b> %{customdata[2]}<br><br>" +
         "<b>Total Votes:</b> %{customdata[3]:,}<br>" +
         "<b>Vote % (Democrat):</b> %{customdata[4]:.1%}<br>" +
-        "<b>Vote % (Republican):</b> %{customdata[5]:.1%}<br><br>"
-        "<b>% of Population (White):</b> %{customdata[6]:.1%}<br>" +
-        "<b>% of Population (Black):</b> %{customdata[7]:.1%}<br>" +
-        "<b>% of Population (Hispanic):</b> %{customdata[8]:.1%}<br><br>" +
-        "<b>Income (Median Household, 2010):</b> $%{customdata[9]:,}<br>" +
-        "<b>Poverty Rate (Overall, 2010):</b> %{customdata[10]:.1%}<br>" +
-        "<b>Bachelor's Degree (% of Adults):</b> %{customdata[11]:.1%}" +
+        "<b>Vote % (Republican):</b> %{customdata[5]:.1%}<br>" +
+        "<b>Raw Vote Margin:</b> %{customdata[6]}<br><br>" +
+        "<b>% of Population (White):</b> %{customdata[7]:.1%}<br>" +
+        "<b>% of Population (Black):</b> %{customdata[8]:.1%}<br>" +
+        "<b>% of Population (Hispanic):</b> %{customdata[9]:.1%}<br><br>" +
+        "<b>Income (Median Household, 2010):</b> $%{customdata[10]:,}<br>" +
+        "<b>Poverty Rate (Overall, 2010):</b> %{customdata[11]:.1%}<br>" +
+        "<b>Bachelor's Degree (% of Adults):</b> %{customdata[12]:.1%}" +
         "<extra></extra>"
     )
     # Each group by the map color is one "trace".
