@@ -7,7 +7,7 @@ import squarify
 import county_results_utils as cutils
 import county_results_config as cfg  # bring in your custom color scale
 
-dash.register_page(__name__, name="County Heatmap", path="/heatmap")
+dash.register_page(__name__, name="County Heatmap", path="/heatmap", order=3)
 
 # ---- Load data ----
 df = pd.read_csv(
@@ -182,7 +182,7 @@ def update_heatmap(state, year, selected_color_by):
             x=[r["x"] + r["dx"]/2],
             y=[r["y"] + r["dy"]/2],
             mode="markers",
-            marker=dict(size=max(r["dx"], r["dy"]) * 5, opacity=0, color=fill_color),
+            marker=dict(size=max(r["dx"], r["dy"]) * 3, opacity=0, color=fill_color),
             hovertemplate=hover_text,
             showlegend=False
         ))
