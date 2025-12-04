@@ -6,7 +6,7 @@ from collections import defaultdict
 import county_results_config as cfg
 
 # Register page
-dash.register_page(__name__, name="Scatterplot Explorer", path="/scatterplot")
+dash.register_page(__name__, name="Scatterplot Explorer", path="/scatterplot", order=2)
 
 # Load data once
 df = pd.read_csv(
@@ -154,9 +154,9 @@ def update_scatter(x_col, y_col, color_col, size_col, state_filter):
         x=x_col,
         y=y_col,
         color=color_col if color_col else None,
-        color_continuous_scale="algae",
+        color_continuous_scale="viridis_r",
         size=size_col if size_col else None,
-        size_max=30,
+        size_max=40,
         custom_data=[
             "county_name", "state_abbr", "county_seat",
             x_col, y_col, color_col, size_col
@@ -201,10 +201,10 @@ def update_scatter(x_col, y_col, color_col, size_col, state_filter):
     ]
     # Only include color if applicable
     if display_color:
-        parts.append(f"<b>{display_color}:</b> %{{customdata[5]:,.1f}}<br>")
+        parts.append(f"<b>{display_color}:</b> %{{customdata[5]:,.3f}}<br>")
     # Only include size if applicable
     if display_size:
-        parts.append(f"<b>{display_size}:</b> %{{customdata[6]:,.1f}}")
+        parts.append(f"<b>{display_size}:</b> %{{customdata[6]:,.0f}}")
     # Always hide the trace footer
     parts.append("<extra></extra>")
     hover_template = "".join(parts)

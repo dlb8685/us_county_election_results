@@ -7,7 +7,7 @@ import county_results_config as cfg
 import county_results_utils as cutils
 
 # Register page
-dash.register_page(__name__, name="Nationwide Map", path="/nationwide-map")
+dash.register_page(__name__, name="County Map", path="/county-map", order=1)
 
 # ---- Load data once ----
 df = pd.read_csv(

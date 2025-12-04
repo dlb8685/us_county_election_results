@@ -1,7 +1,7 @@
 import dash
 from dash import html
 
-dash.register_page(__name__, path="/")
+dash.register_page(__name__, name="Using this Tool", path="/", order=4)
 
 layout = html.Div([
     html.P("Explore county election data across different visualizations."),
