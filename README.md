@@ -1,6 +1,7 @@
 # us_county_election_results
 A project to create and analyze data from U.S. elections, primarily at the county-level.
 
+The public URL for this project is: https://us-county-election-results.onrender.com/
 
 ## Raw Data
 Below are sources and notes on the data lineage of the raw data files.
@@ -57,3 +58,9 @@ This isn't even a CSV to download, you have to copy-paste and create your own fi
 https://www.hmdb.org/countyoverlay/countyseatlist.asp
 
 
+## Pipeline
+After you have the raw data files, you can run `pipeline.sh` and it will spin up the sqlite3 database and process these files.
+
+
+## Frontend
+After pipeline completes, you can run `frontend.sh` to run the Dash application locally, accessible on localhost.
